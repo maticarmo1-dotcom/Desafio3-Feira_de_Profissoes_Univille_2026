@@ -1,0 +1,2785 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NEXUS — Sinal de Satélite</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+:root{
+  --viz-panel:#081521;--viz-card:#0c1c29;--viz-chip-card:#0d2130;
+  --viz-text:#eafcff;--viz-muted:#89a9b4;--viz-border:rgba(94,220,255,.20);
+  --viz-accent:#5edcff;--viz-accent-text:#001016;
+  --viz-accent-bg:rgba(94,220,255,.14);--viz-accent-bg-subtle:rgba(94,220,255,.08);
+}
+body{margin:0;min-height:100vh;overflow-x:hidden;background:#03070d;color:var(--viz-text);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{position:relative;z-index:1;width:min(1180px,calc(100% - 28px));margin:0 auto;padding:28px 0 40px}
+.challenge-code-canvas{position:fixed;inset:0;z-index:0;width:100%;height:100%;pointer-events:none;opacity:0;transition:opacity .5s ease}
+body.mission-active:not(.success-active) .challenge-code-canvas{opacity:1}
+.viz-badge{display:inline-flex;padding:5px 9px;border:1px solid var(--viz-accent);border-radius:999px;background:var(--viz-accent-bg-subtle);color:var(--viz-accent);font:10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}
+.metric-card{padding:13px;border:1px solid var(--viz-border);border-radius:13px;background:rgba(255,255,255,.018)}
+.viz-stat-value{display:block;margin-top:6px;color:var(--viz-accent);font:28px ui-monospace,SFMono-Regular,Menlo,monospace}
+#sat-game{position:relative;isolation:isolate;padding:4px;background:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);background-size:28px 28px}
+#sat-game .command-deck{position:relative;overflow:hidden;border-color:color-mix(in srgb,var(--viz-accent) 50%,var(--viz-border));background:linear-gradient(135deg,color-mix(in srgb,var(--viz-accent-bg-subtle) 75%,transparent),transparent 48%),var(--viz-panel)}
+#sat-game .command-deck::before{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0 5px,rgba(255,255,255,.015) 5px 6px)}
+#sat-game .command-grid{position:relative;z-index:1;display:grid;gap:28px;align-items:center;grid-template-columns:minmax(0,1fr) 260px}
+#sat-game .status-pill{display:inline-flex;align-items:center;gap:7px;padding:6px 9px;border:1px solid var(--viz-border);border-radius:999px;font:10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;background:color-mix(in srgb,var(--viz-card) 80%,transparent)}
+#sat-game .status-pill.danger{border-color:color-mix(in srgb,var(--viz-accent) 55%,var(--viz-border))}
+#sat-game .live-dot{width:7px;height:7px;border-radius:50%;background:var(--viz-accent);box-shadow:0 0 0 4px var(--viz-accent-bg-subtle)}
+#sat-game .mono-label{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.18em;color:var(--viz-accent)}
+#sat-game .hud-stat{padding:11px 12px;border:1px solid var(--viz-border);border-radius:12px;background:color-mix(in srgb,var(--viz-card) 74%,transparent)}
+#sat-game .hud-stat span{display:block;font:9px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em;color:var(--viz-muted)}
+#sat-game .hud-stat strong{display:block;margin-top:4px;font:15px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--viz-accent)}
+#sat-game .orbital-display{position:relative;width:250px;height:250px;margin:0 auto;border:1px solid var(--viz-border);border-radius:50%;background:radial-gradient(circle,var(--viz-accent-bg-subtle),transparent 67%);overflow:hidden}
+#sat-game .orbital-display::before,#sat-game .orbital-display::after{content:"";position:absolute;background:var(--viz-border);opacity:.5}
+#sat-game .orbital-display::before{width:100%;height:1px;left:0;top:50%}#sat-game .orbital-display::after{width:1px;height:100%;left:50%;top:0}
+#sat-game .planet-core{position:absolute;z-index:3;left:50%;top:50%;width:58px;height:58px;transform:translate(-50%,-50%);display:grid;place-items:center;border:1px solid var(--viz-accent);border-radius:50%;background:var(--viz-panel);box-shadow:0 0 0 8px var(--viz-accent-bg-subtle)}
+#sat-game .planet-core span{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--viz-accent)}
+#sat-game .orbit-ring{position:absolute;left:50%;top:50%;border:1px dashed color-mix(in srgb,var(--viz-accent) 55%,transparent);border-radius:50%;transform:translate(-50%,-50%)}
+#sat-game .ring-a{width:105px;height:105px}#sat-game .ring-b{width:160px;height:160px}#sat-game .ring-c{width:215px;height:215px}
+#sat-game .sat-dot{position:absolute;z-index:4;display:grid;place-items:center;width:28px;height:28px;border:1px solid var(--viz-accent);border-radius:8px;font:10px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--viz-accent);background:var(--viz-panel)}
+#sat-game .sat-a{top:23px;left:108px}#sat-game .sat-b{right:27px;top:109px}#sat-game .sat-c{bottom:29px;left:107px}#sat-game .sat-d{left:28px;top:109px}
+#sat-game .radar-sweep{position:absolute;z-index:2;left:50%;top:50%;width:108px;height:1px;transform-origin:left center;background:linear-gradient(90deg,var(--viz-accent),transparent);animation:radarSweep2 4s linear infinite}
+#sat-game .mission-meter{min-width:210px;padding:12px 14px;border:1px solid var(--viz-border);border-radius:14px;background:color-mix(in srgb,var(--viz-card) 78%,transparent)}
+#sat-game .mission-flow{display:grid;grid-template-columns:auto 1fr auto 1fr auto;align-items:center;gap:10px}
+#sat-game .flow-step{display:flex;align-items:center;gap:9px;min-width:0;opacity:.45;transition:opacity .2s ease,transform .2s ease}
+#sat-game .flow-step.is-active,#sat-game .flow-step.is-done{opacity:1}#sat-game .flow-step.is-active{transform:translateY(-1px)}
+#sat-game .flow-step>span{display:grid;place-items:center;width:30px;height:30px;flex:0 0 30px;border:1px solid var(--viz-border);border-radius:50%;font:11px ui-monospace,SFMono-Regular,Menlo,monospace}
+#sat-game .flow-step.is-active>span,#sat-game .flow-step.is-done>span{border-color:var(--viz-accent);color:var(--viz-accent);background:var(--viz-accent-bg-subtle)}
+#sat-game .flow-step strong{display:block;font:10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}#sat-game .flow-step small{display:block;margin-top:2px;color:var(--viz-muted);font-size:11px}
+#sat-game .flow-line{height:1px;background:var(--viz-border)}
+#sat-game .meter-track{height:8px;overflow:hidden;border-radius:999px;background:color-mix(in srgb,var(--viz-border) 70%,transparent)}
+#sat-game .meter-track span{display:block;width:0%;height:100%;background:var(--viz-accent);transition:width .25s ease}
+#sat-game .primary-action{box-shadow:0 0 0 1px color-mix(in srgb,var(--viz-accent) 25%,transparent) inset;letter-spacing:.025em}
+#sat-game .secondary-action{background:color-mix(in srgb,var(--viz-card) 74%,transparent)}
+#sat-game .validation-action{border:1px solid rgba(102,214,159,.85)!important;background:rgb(102,214,159)!important;color:#00140c!important;box-shadow:0 0 0 3px rgba(102,214,159,.08),0 8px 24px rgba(25,120,78,.16)!important}
+#sat-game .validation-action:disabled{background:rgba(102,214,159,.58)!important;color:#062217!important}
+#sat-game .drag-instruction{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--viz-accent);border-radius:14px;background:var(--viz-accent-bg-subtle)}
+#sat-game .drag-instruction strong{display:block;font:12px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;color:var(--viz-accent)}
+#sat-game .drag-instruction p{margin:4px 0 0;font-size:13px;color:var(--viz-muted)}
+#sat-game .drag-hand{display:grid;place-items:center;width:42px;height:42px;flex:0 0 42px;border:1px solid var(--viz-accent);border-radius:12px;font-size:22px;animation:dragHint 1.5s ease-in-out infinite}
+#sat-game::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(circle at 78% 0%,var(--viz-accent-bg-subtle),transparent 34%)}
+#sat-game .hero-panel{position:relative;overflow:hidden}
+#sat-game .hero-panel::after{content:"NEXUS // ORBITAL LINK // SECURE CHANNEL";position:absolute;right:18px;bottom:10px;font:10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.14em;color:var(--viz-muted);opacity:.45}
+#sat-game .radar-icon{position:relative;width:36px;height:36px;flex:0 0 36px;border:1px solid var(--viz-accent);border-radius:999px;background:var(--viz-accent-bg-subtle)}
+#sat-game .radar-icon::before,#sat-game .radar-icon::after{content:"";position:absolute;inset:7px;border:1px solid var(--viz-accent);border-radius:999px;opacity:.55}
+#sat-game .radar-icon::after{inset:14px;opacity:.9}
+#sat-game .radar-icon span:first-child{position:absolute;left:17px;top:3px;width:1px;height:15px;background:var(--viz-accent);transform-origin:bottom center;animation:radarSweep 2.6s linear infinite}
+#sat-game .radar-icon span:last-child{position:absolute;width:4px;height:4px;right:6px;top:9px;border-radius:999px;background:var(--viz-accent)}
+#sat-game .umbra-box{border-color:color-mix(in srgb,var(--viz-accent) 45%,var(--viz-border));background:linear-gradient(90deg,var(--viz-accent-bg-subtle),transparent 72%)}
+#sat-game .umbra-avatar{display:grid;place-items:center;width:38px;height:38px;flex:0 0 38px;border:1px solid var(--viz-accent);border-radius:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--viz-accent);background:var(--viz-accent-bg-subtle)}
+#sat-game .step-chip{display:inline-grid;place-items:center;min-width:30px;height:24px;padding:0 7px;border:1px solid var(--viz-accent);border-radius:7px;font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--viz-accent);background:var(--viz-accent-bg-subtle)}
+#sat-game .satellite-card{position:relative;overflow:hidden;cursor:grab;user-select:none;min-height:118px;transition:transform .18s ease,border-color .18s ease,background .18s ease}
+#sat-game .satellite-card::before{content:"ARRASTE";position:absolute;right:10px;bottom:9px;font:9px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em;color:var(--viz-muted);opacity:.7}
+#sat-game .satellite-card::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--viz-accent);transform:scaleX(0);transform-origin:left;transition:transform .18s ease}
+#sat-game .satellite-card:hover{transform:translateY(-3px);border-color:var(--viz-accent)!important}#sat-game .satellite-card:hover::after{transform:scaleX(1)}#sat-game .satellite-card:active{cursor:grabbing}
+#sat-game .satellite-card.selected{border-color:var(--viz-accent)!important;background:var(--viz-accent-bg-subtle);transform:translateY(-2px)}#sat-game .satellite-card.selected::after{transform:scaleX(1)}
+#sat-game .channel-slot{position:relative;min-height:232px;overflow:hidden;background:color-mix(in srgb,var(--viz-card) 80%,transparent);transition:transform .18s ease,border-color .18s ease,background .18s ease}
+#sat-game .channel-slot .drop-label{display:flex;align-items:center;justify-content:center;min-height:46px;margin-top:12px;border:1px dashed var(--viz-accent);border-radius:10px;color:var(--viz-accent);font:10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.1em;background:var(--viz-accent-bg-subtle)}
+#sat-game .channel-slot::before{content:"";position:absolute;width:90px;height:90px;right:-34px;top:-34px;border:1px solid var(--viz-border);border-radius:999px;opacity:.35}
+#sat-game .channel-slot:hover{border-color:color-mix(in srgb,var(--viz-accent) 60%,var(--viz-border))!important;transform:translateY(-2px)}
+#sat-game .channel-slot.target{border-color:var(--viz-accent)!important;background:var(--viz-accent-bg-subtle);transform:translateY(-2px)}
+#sat-game .assigned{background:color-mix(in srgb,var(--viz-panel) 72%,transparent)}
+#sat-game .channel-header{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:12px}
+#sat-game .channel-requirements{position:relative;z-index:1;display:grid;gap:10px;margin-top:13px}
+#sat-game .channel-requirement{padding:10px 11px;border:1px solid var(--viz-border);border-radius:11px;background:rgba(255,255,255,.018)}
+#sat-game .channel-requirement span{display:block;color:var(--viz-muted);font:9px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em}
+#sat-game .channel-requirement strong{display:block;margin-top:5px;color:var(--viz-text);font:13px ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.45}
+#sat-game .channel-requirement .signal{color:var(--viz-accent);font-size:15px;letter-spacing:.18em}
+#sat-game .channel-frequency strong{font-size:17px}
+#sat-game .sat-frequency-block{margin-top:12px;color:var(--viz-muted)}
+#sat-game .sat-frequency-block span{display:block;font:9px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.1em}
+#sat-game .sat-frequency-block strong{display:block;margin-top:4px;color:var(--viz-text);font:800 18px ui-monospace,SFMono-Regular,Menlo,monospace}
+#sat-game .assigned{position:relative;z-index:2;min-height:58px;margin-top:12px;padding:6px;border:1px solid var(--viz-border);border-radius:14px}
+#sat-game .assigned-empty{display:flex;align-items:center;justify-content:center;min-height:44px;color:var(--viz-muted);font-size:12px;text-align:center}
+#sat-game .channel-slot.has-assignment{border-style:solid!important;min-height:0}
+#sat-game .channel-slot.has-assignment .drop-label{display:none}
+#sat-game .channel-slot.has-assignment .channel-status{border-color:rgb(102,214,159);color:rgb(102,214,159);background:rgba(102,214,159,.08)}
+#sat-game .placed-satellite{display:block;width:100%;min-height:126px!important;padding:14px 14px 30px!important;border:1px solid var(--viz-border);border-radius:11px!important;text-align:left;color:var(--viz-text);animation:placedCardIn .28s ease both}
+#sat-game .placed-satellite::before{content:"CONECTADO"!important;color:currentColor!important;opacity:.9!important}
+#sat-game .placed-satellite::after{transform:scaleX(1)!important}
+#sat-game .placed-satellite:hover{transform:translateY(-1px)}
+#sat-game .placed-satellite .placed-label{margin-top:9px;color:var(--viz-muted);font:9px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.1em}
+#sat-game .placed-satellite .placed-frequency{margin-top:8px;color:var(--viz-muted);font-size:10px}
+#sat-game .placed-satellite .placed-frequency strong{display:block;margin-top:3px;color:var(--viz-text);font-size:16px}
+#sat-game .satellite-card.is-assigned-source{display:none!important}
+#sat-game .channel-slot:focus-visible{outline:2px solid var(--viz-accent);outline-offset:3px}
+#sat-game .signal{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;letter-spacing:.25em;color:var(--viz-accent)}
+#sat-game .status-console{display:flex;align-items:center;gap:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:color-mix(in srgb,var(--viz-card) 80%,transparent)}
+#sat-game .status-dot{width:8px;height:8px;border-radius:999px;background:var(--viz-accent);box-shadow:0 0 0 4px var(--viz-accent-bg-subtle);animation:statusPulse 1.7s ease-in-out infinite}
+#sat-game .success-orbit{display:grid;place-items:center;position:relative;width:74px;height:74px;border:1px solid var(--viz-accent);border-radius:999px}
+#sat-game .success-orbit::before{content:"";position:absolute;inset:10px -12px;border:1px dashed var(--viz-accent);border-radius:50%;transform:rotate(-18deg)}
+#sat-game .success-orbit span{font-size:28px}#sat-game .success-panel{animation:successIn .35s ease both}
+#sat-game .wave-status{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#sat-game .wave-status>div{padding:11px 12px;border:1px solid var(--viz-border);border-radius:12px;background:color-mix(in srgb,var(--viz-card) 78%,transparent)}
+#sat-game .wave-status span{display:block;font:9px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em;color:var(--viz-muted)}
+#sat-game .wave-status strong{display:block;margin-top:4px;color:var(--viz-accent);font:14px ui-monospace,SFMono-Regular,Menlo,monospace}
+#sat-game .wave-status .wave-sync-card{grid-column:1/-1;padding:17px 18px;border-color:rgba(180,132,255,.48);background:linear-gradient(135deg,rgba(180,132,255,.14),rgba(180,132,255,.035))}
+#sat-game .wave-sync-header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+#sat-game .wave-sync-header em{color:rgb(190,150,255);font:700 10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;font-style:normal;text-align:right}
+#sat-game .wave-status .wave-sync-card #waveAccuracy{margin-top:8px;color:rgb(190,150,255);font:800 42px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:-.04em}
+#sat-game .wave-sync-track{height:12px;margin-top:13px;overflow:hidden;border:1px solid rgba(180,132,255,.25);border-radius:999px;background:rgba(180,132,255,.08)}
+#sat-game .wave-sync-track i{display:block;width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,rgb(132,98,230),rgb(190,150,255));transition:width .12s ease,background .18s ease}
+#sat-game .wave-sync-card small{display:block;margin-top:9px;color:var(--viz-muted);font:9px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}
+#sat-game .wave-sync-card.is-ready{border-color:rgba(112,230,165,.68);background:linear-gradient(135deg,rgba(112,230,165,.17),rgba(112,230,165,.04));box-shadow:0 0 0 3px rgba(112,230,165,.05)}
+#sat-game .wave-sync-card.is-ready .wave-sync-header em,#sat-game .wave-status .wave-sync-card.is-ready #waveAccuracy{color:#70e6a5}
+#sat-game .wave-sync-card.is-ready .wave-sync-track{border-color:rgba(112,230,165,.34);background:rgba(112,230,165,.08)}
+#sat-game .wave-sync-card.is-ready .wave-sync-track i{background:linear-gradient(90deg,#4dbd85,#70e6a5)}
+#sat-game .wave-screen{position:relative;overflow:hidden;border:1px solid var(--viz-border);border-radius:16px;background:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px),color-mix(in srgb,var(--viz-card) 78%,transparent);background-size:28px 28px}
+#sat-game .wave-screen::after{content:"OSCILOSCÓPIO NEXUS // LIVE SIGNAL";position:absolute;right:12px;bottom:8px;color:var(--viz-muted);opacity:.45;font:9px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em}
+#sat-game .wave-screen__legend{display:flex;flex-wrap:wrap;gap:14px;padding:11px 13px;border-bottom:1px solid var(--viz-border);font-size:11px;color:var(--viz-muted)}
+#sat-game .wave-screen__legend span{display:flex;align-items:center;gap:7px}#sat-game .wave-screen__legend i{width:24px;height:2px;display:inline-block}
+#sat-game .target-line{background:repeating-linear-gradient(90deg,rgba(210,225,232,.9) 0 6px,transparent 6px 10px)}#sat-game .player-line{background:rgb(190,150,255)}
+#sat-game #waveCanvas{display:block;width:100%;height:auto;max-height:280px}
+#sat-game .wave-lock-zone{position:absolute;left:50%;top:54%;transform:translate(-50%,-50%);pointer-events:none;opacity:.09;white-space:nowrap;font:700 20px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.18em}
+#sat-game .wave-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+#sat-game .wave-controls label{padding:13px;border:1px solid var(--viz-border);border-radius:13px;background:color-mix(in srgb,var(--viz-card) 80%,transparent);color:var(--viz-muted);font:10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}
+#sat-game .wave-controls label strong{float:right;color:var(--viz-accent)}#sat-game .wave-controls input[type="range"]{width:100%;margin-top:12px;accent-color:var(--viz-accent);cursor:pointer}
+#sat-game .validation-overlay,#sat-game .result-modal{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:20px;background:rgba(3,7,13,.86);backdrop-filter:blur(8px)}
+#sat-game .hidden{display:none!important}
+#sat-game .validation-box,#sat-game .result-card{width:min(440px,100%);padding:24px;border:1px solid var(--viz-accent);border-radius:20px;background:var(--viz-panel);box-shadow:0 20px 70px rgba(0,0,0,.38)}
+#sat-game .validation-spinner{width:42px;height:42px;margin-bottom:14px;border:3px solid var(--viz-border);border-top-color:var(--viz-accent);border-radius:50%;animation:spin .8s linear infinite}
+#sat-game .validation-track{height:10px;overflow:hidden;border-radius:999px;background:color-mix(in srgb,var(--viz-border) 70%,transparent)}
+#sat-game .validation-track span{display:block;width:0%;height:100%;background:var(--viz-accent);transition:width .18s ease}
+#sat-game .result-card{text-align:center}#sat-game .result-icon{display:grid;place-items:center;width:58px;height:58px;margin:0 auto 14px;border:1px solid var(--viz-accent);border-radius:50%;color:var(--viz-accent);font-size:28px;background:var(--viz-accent-bg-subtle)}
+#sat-game .result-card.error{border-color:#d66}#sat-game .result-card.error .result-icon{border-color:#d66;color:#d66;background:rgba(220,80,80,.08)}
+#sat-game .validation-box{border-color:rgba(102,214,159,.62);background:linear-gradient(145deg,rgba(102,214,159,.10),transparent 48%),var(--viz-panel)}
+#sat-game .validation-box .mono-label,#sat-game .validation-box #validationPercent{color:rgb(102,214,159)}
+#sat-game .validation-spinner{border-top-color:rgb(102,214,159)}
+#sat-game .validation-track{background:rgba(102,214,159,.11)}
+#sat-game .validation-track span{background:linear-gradient(90deg,#4dbd85,#70e6a5)}
+#sat-game .result-modal[data-success="1"] .result-card{border-color:rgba(102,214,159,.68);background:linear-gradient(145deg,rgba(102,214,159,.12),transparent 50%),var(--viz-panel)}
+#sat-game .result-modal[data-success="1"] .result-icon{border-color:rgb(102,214,159);color:rgb(102,214,159);background:rgba(102,214,159,.10);box-shadow:0 0 0 6px rgba(102,214,159,.05)}
+#sat-game .result-modal[data-success="1"] #resultClose{background:rgb(102,214,159)!important;color:#00140c!important}
+#sat-game button:not(:disabled){transition:transform .16s ease,opacity .16s ease}#sat-game button:not(:disabled):hover{transform:translateY(-1px)}#sat-game button:disabled{opacity:.55;cursor:not-allowed}
+@keyframes radarSweep{to{transform:rotate(360deg)}}@keyframes radarSweep2{to{transform:rotate(360deg)}}@keyframes statusPulse{50%{opacity:.35}}@keyframes dragHint{50%{transform:translateY(5px)}}@keyframes spin{to{transform:rotate(360deg)}}@keyframes successIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes placedCardIn{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(max-width:720px){#sat-game .command-grid{grid-template-columns:1fr}#sat-game .orbital-display{width:220px;height:220px}#sat-game .sat-a{top:18px;left:95px}#sat-game .sat-b{right:22px;top:95px}#sat-game .sat-c{bottom:23px;left:95px}#sat-game .sat-d{left:22px;top:95px}#sat-game .wave-controls{grid-template-columns:1fr}#sat-game .mission-flow{grid-template-columns:1fr}#sat-game .flow-line{width:1px;height:18px;margin-left:15px}}
+
+#sat-game .challenge-zone {
+  padding: 20px;
+  border-radius: 18px;
+  border: 1px solid var(--viz-border);
+}
+#sat-game .challenge-one {
+  border-color: rgba(102,214,159,.34);
+  background: linear-gradient(135deg,rgba(102,214,159,.07),transparent 55%);
+}
+#sat-game .challenge-two {
+  border-color: rgba(180,132,255,.38) !important;
+  background: linear-gradient(135deg,rgba(180,132,255,.09),transparent 58%),var(--viz-panel) !important;
+}
+#sat-game .challenge-three {
+  border-color: rgba(255,181,87,.40) !important;
+  background: linear-gradient(135deg,rgba(255,181,87,.10),transparent 60%) !important;
+}
+#sat-game .challenge-title {
+  font-size: clamp(1.35rem,2.5vw,1.8rem);
+  line-height: 1.15;
+  letter-spacing: -.01em;
+}
+#sat-game .challenge-instructions{
+  margin-top:16px;
+  padding:16px 18px;
+  border:2px solid var(--viz-accent);
+  border-radius:15px;
+  background:linear-gradient(135deg,rgba(94,220,255,.16),rgba(94,220,255,.05));
+  box-shadow:0 0 0 3px rgba(94,220,255,.06),0 10px 30px rgba(0,0,0,.18);
+}
+#sat-game .challenge-instructions-title{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  color:var(--viz-accent);
+  font:800 12px ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+#sat-game .challenge-instructions-title::before{
+  content:"⚠";
+  display:grid;
+  place-items:center;
+  width:24px;
+  height:24px;
+  border:1px solid var(--viz-accent);
+  border-radius:7px;
+  background:var(--viz-accent-bg-subtle);
+}
+#sat-game .challenge-instructions p{
+  margin:8px 0 0;
+  color:var(--viz-text);
+  font-size:14px;
+  line-height:1.6;
+}
+#sat-game .challenge-instructions strong{
+  color:var(--viz-accent);
+}
+#sat-game .challenge-three .challenge-instructions{
+  border-color:rgba(255,181,87,.8);
+  background:linear-gradient(135deg,rgba(255,181,87,.17),rgba(255,181,87,.05));
+  box-shadow:0 0 0 3px rgba(255,181,87,.06),0 10px 30px rgba(0,0,0,.18);
+}
+#sat-game .challenge-three .challenge-instructions-title{
+  color:rgb(255,181,87);
+}
+#sat-game .challenge-three .challenge-instructions-title::before{
+  border-color:rgb(255,181,87);
+  background:rgba(255,181,87,.08);
+}
+#sat-game .final-key-value{
+  display:block;
+  margin-top:7px;
+  font:800 32px ui-monospace,SFMono-Regular,Menlo,monospace;
+  color:var(--viz-accent);
+}
+#sat-game .final-key-card{
+  text-align:center;
+  border-color:rgba(255,181,87,.35);
+}
+#sat-game #keys.is-scrambling .final-key-value{animation:keyFlicker .1s steps(2,end) infinite}
+#sat-game #keys.is-stable .final-key-value{color:rgb(255,196,112);animation:keySettle .34s ease both}
+#sat-game .key-sequence-status{margin-top:12px;padding:10px 12px;border:1px solid rgba(255,181,87,.3);border-radius:10px;color:rgb(255,181,87);background:rgba(255,181,87,.06);font:700 10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}
+@keyframes keyFlicker{
+  50%{opacity:.65;transform:scale(1.04)}
+}
+@keyframes keySettle{from{opacity:.45;transform:scale(1.12)}to{opacity:1;transform:scale(1)}}
+
+#sat-game .satellite-card{--sat-color:rgb(94,220,255);--sat-soft:rgba(94,220,255,.08)}
+#sat-game .satellite-card.sat-atlas,#sat-game .channel-slot.sat-atlas{--sat-color:rgb(102,214,159);--sat-soft:rgba(102,214,159,.09)}
+#sat-game .satellite-card.sat-pulse,#sat-game .channel-slot.sat-pulse{--sat-color:rgb(255,181,87);--sat-soft:rgba(255,181,87,.09)}
+#sat-game .satellite-card.sat-vega,#sat-game .channel-slot.sat-vega{--sat-color:rgb(190,150,255);--sat-soft:rgba(180,132,255,.10)}
+#sat-game .satellite-card.sat-orion,#sat-game .channel-slot.sat-orion{--sat-color:rgb(255,112,145);--sat-soft:rgba(255,112,145,.09)}
+#sat-game .satellite-card.sat-nyx,#sat-game .channel-slot.sat-nyx{--sat-color:rgb(165,170,180);--sat-soft:rgba(150,150,160,.08)}
+#sat-game .satellite-card.sat-echo,#sat-game .channel-slot.sat-echo{--sat-color:rgb(220,110,110);--sat-soft:rgba(220,90,90,.08)}
+#sat-game .satellite-card.sat-rift,#sat-game .channel-slot.sat-rift{--sat-color:rgb(118,170,255);--sat-soft:rgba(118,170,255,.09)}
+#sat-game .satellite-card.sat-nova,#sat-game .channel-slot.sat-nova{--sat-color:rgb(240,135,220);--sat-soft:rgba(240,135,220,.09)}
+#sat-game .satellite-card[class*="sat-"]{border-color:color-mix(in srgb,var(--sat-color) 54%,var(--viz-border))!important;background:linear-gradient(135deg,var(--sat-soft),rgba(255,255,255,.012))!important}
+#sat-game .satellite-card[class*="sat-"] .signal{color:var(--sat-color)!important}
+
+/* Different stage identities */
+#sat-game .challenge-one .step-chip {
+  border-color: rgba(102,214,159,.65);
+  color: rgb(102,214,159);
+  background: rgba(102,214,159,.08);
+}
+#sat-game .challenge-two .step-chip,
+#sat-game .challenge-two .viz-badge {
+  border-color: rgba(180,132,255,.65);
+  color: rgb(190,150,255);
+  background: rgba(180,132,255,.08);
+}
+#sat-game .challenge-two input[type="range"] {
+  accent-color: rgb(180,132,255);
+}
+#sat-game .challenge-three .step-chip,
+#sat-game .challenge-three .viz-badge {
+  border-color: rgba(255,181,87,.68);
+  color: rgb(255,181,87);
+  background: rgba(255,181,87,.08);
+}
+#sat-game .challenge-three #codeInput:focus {
+  border-color: rgb(255,181,87) !important;
+  box-shadow: 0 0 0 3px rgba(255,181,87,.10);
+}
+
+/* Keep overlays dead-center in the actual browser viewport */
+#sat-game .validation-overlay,
+#sat-game .result-modal {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 99999 !important;
+  display: grid;
+  place-items: center;
+}
+#sat-game .hidden { display:none !important; }
+
+
+#sat-game.protocol-not-started > :not(#protocolStart){display:none!important}
+#sat-game:not(.protocol-not-started) #protocolStart{display:none!important}
+#sat-game .protocol-start-screen{min-height:640px;display:grid;place-items:center;padding:32px 16px;border:1px solid var(--viz-border);border-radius:24px;background:radial-gradient(circle at 50% 18%,rgba(94,220,255,.11),transparent 34%),linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px),var(--viz-panel);background-size:auto,30px 30px,30px 30px,auto}
+#sat-game .protocol-start-card{width:min(620px,100%);text-align:center}
+#sat-game .protocol-start-card h1{margin:12px 0 0;font-size:clamp(2rem,5vw,3.5rem);line-height:1;letter-spacing:-.04em}
+#sat-game .protocol-start-text{max-width:560px;margin:18px auto 0;color:var(--viz-muted);line-height:1.65}
+#sat-game .protocol-start-radar{position:relative;width:155px;height:155px;margin:0 auto 24px;overflow:hidden;border:1px solid var(--viz-border);border-radius:50%;background:radial-gradient(circle,var(--viz-accent-bg-subtle),transparent 68%)}
+#sat-game .start-orbit{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border:1px dashed rgba(94,220,255,.48);border-radius:50%}
+#sat-game .start-orbit-a{width:88px;height:88px}.start-orbit-b{width:130px;height:130px}
+#sat-game .start-core{position:absolute;z-index:3;left:50%;top:50%;display:grid;width:48px;height:48px;place-items:center;transform:translate(-50%,-50%);border:1px solid var(--viz-accent);border-radius:50%;background:var(--viz-panel);color:var(--viz-accent);font:12px ui-monospace,SFMono-Regular,Menlo,monospace}
+#sat-game .start-sweep{position:absolute;left:50%;top:50%;width:66px;height:1px;transform-origin:left center;background:linear-gradient(90deg,var(--viz-accent),transparent);animation:radarSweep2 3s linear infinite}
+#sat-game .protocol-start-data{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:24px}
+#sat-game .protocol-start-data div{padding:12px;border:1px solid var(--viz-border);border-radius:12px;background:rgba(255,255,255,.018)}
+#sat-game .protocol-start-data span{display:block;color:var(--viz-muted);font:9px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em}
+#sat-game .protocol-start-data strong{display:block;margin-top:5px;color:var(--viz-accent);font:12px ui-monospace,SFMono-Regular,Menlo,monospace}
+#sat-game .protocol-start-button{min-height:50px;margin-top:24px;padding:0 28px;border:1px solid var(--viz-accent);border-radius:12px;background:var(--viz-accent);color:var(--viz-accent-text);font-weight:800;letter-spacing:.06em;cursor:pointer}
+body.success-active{overflow:hidden}
+#sat-game .completion-screen{position:fixed!important;top:-3px!important;right:-3px!important;bottom:-3px!important;left:-3px!important;width:calc(100vw + 6px);height:calc(100dvh + 6px);min-height:calc(100vh + 6px);margin:0!important;box-sizing:border-box;z-index:100000;display:grid;place-items:center;overflow:hidden;padding:clamp(18px,4vw,54px);background:radial-gradient(circle at 24% 48%,rgba(97,255,196,.14),transparent 26%),radial-gradient(circle at 82% 18%,rgba(94,220,255,.09),transparent 24%),#02080b;isolation:isolate}
+#sat-game .completion-screen::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(rgba(97,255,196,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(97,255,196,.025) 1px,transparent 1px);background-size:34px 34px;mask-image:linear-gradient(to bottom,transparent,black 16%,black 84%,transparent)}
+#sat-game .completion-screen::after{content:"NEXUS // ORBITAL NETWORK RESTORED // NOVA AURORA ONLINE";position:absolute;left:50%;bottom:18px;z-index:4;transform:translateX(-50%);white-space:nowrap;color:rgba(97,255,196,.42);font:9px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.16em}
+#sat-game .success-code-canvas{position:absolute;inset:0;z-index:1;width:100%;height:100%;pointer-events:none;opacity:.46}
+#sat-game .completion-layout{position:relative;z-index:3;display:grid;grid-template-columns:minmax(300px,.82fr) minmax(420px,1.18fr);align-items:center;gap:clamp(34px,6vw,86px);width:min(1180px,100%);max-height:calc(100vh - 70px)}
+#sat-game .success-radar-console{display:grid;justify-items:center;gap:17px;animation:successRadarIn .7s ease both}
+#sat-game .success-radar{position:relative;width:min(38vw,430px);aspect-ratio:1;border:1px solid rgba(97,255,196,.42);border-radius:50%;overflow:hidden;background:radial-gradient(circle,rgba(97,255,196,.12),transparent 60%);box-shadow:0 0 0 10px rgba(97,255,196,.025),0 0 80px rgba(97,255,196,.08)}
+#sat-game .success-radar::before,#sat-game .success-radar::after{content:"";position:absolute;z-index:1;background:rgba(97,255,196,.18)}
+#sat-game .success-radar::before{left:0;right:0;top:50%;height:1px}#sat-game .success-radar::after{top:0;bottom:0;left:50%;width:1px}
+#sat-game .success-radar-ring{position:absolute;z-index:1;left:50%;top:50%;border:1px dashed rgba(97,255,196,.3);border-radius:50%;transform:translate(-50%,-50%)}
+#sat-game .success-radar-ring.ring-1{width:32%;height:32%}#sat-game .success-radar-ring.ring-2{width:58%;height:58%}#sat-game .success-radar-ring.ring-3{width:84%;height:84%}
+#sat-game .success-radar-sweep{position:absolute;z-index:2;inset:5%;border-radius:50%;background:conic-gradient(from 0deg,rgba(97,255,196,.34),rgba(97,255,196,.02) 55deg,transparent 82deg);animation:successRadarSweep 3.3s linear infinite}
+#sat-game .success-radar-core{position:absolute;z-index:5;left:50%;top:50%;display:grid;place-items:center;width:72px;height:72px;transform:translate(-50%,-50%);border:1px solid rgb(97,255,196);border-radius:50%;color:rgb(97,255,196);background:#061014;box-shadow:0 0 0 10px rgba(97,255,196,.07),0 0 34px rgba(97,255,196,.18);font:700 13px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}
+#sat-game .success-radar-satellite{position:absolute;z-index:6;display:grid;place-items:center;width:38px;height:38px;border:1px solid rgba(97,255,196,.68);border-radius:10px;color:rgb(97,255,196);background:#061014;box-shadow:0 0 18px rgba(97,255,196,.15);font-size:17px;animation:successSatellitePulse 2.2s ease-in-out infinite}
+#sat-game .success-radar-satellite.sat-1{left:48%;top:6%}#sat-game .success-radar-satellite.sat-2{right:8%;top:47%;animation-delay:.35s}#sat-game .success-radar-satellite.sat-3{left:47%;bottom:7%;animation-delay:.7s}#sat-game .success-radar-satellite.sat-4{left:8%;top:46%;animation-delay:1.05s}
+#sat-game .success-radar-ping{position:absolute;z-index:4;width:8px;height:8px;border-radius:50%;background:rgb(97,255,196);box-shadow:0 0 0 0 rgba(97,255,196,.42);animation:successPing 2s ease-out infinite}
+#sat-game .success-radar-ping.ping-1{left:28%;top:28%}#sat-game .success-radar-ping.ping-2{right:25%;bottom:29%;animation-delay:.7s}
+#sat-game .success-radar-caption{display:flex;align-items:center;gap:9px;padding:8px 12px;border:1px solid rgba(97,255,196,.28);border-radius:999px;color:rgb(97,255,196);background:rgba(97,255,196,.055);font:10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}
+#sat-game .success-radar-caption::before{content:"";width:7px;height:7px;border-radius:50%;background:rgb(97,255,196);box-shadow:0 0 0 4px rgba(97,255,196,.08);animation:statusPulse 1.5s ease-in-out infinite}
+#sat-game .completion-card{width:100%;padding:0;text-align:left;border:0;background:transparent;box-shadow:none;animation:successContentIn .75s .12s ease both}
+#sat-game .completion-card .mono-label{color:rgb(97,255,196)}
+#sat-game .completion-card h2{max-width:760px;margin:14px 0 0;font-size:clamp(2.3rem,5.5vw,5.3rem);line-height:.93;letter-spacing:-.055em;color:rgb(97,255,196);text-wrap:balance}
+#sat-game .completion-lead{max-width:660px;margin:20px 0 0;color:#b9d4d0;font-size:clamp(14px,1.5vw,17px);line-height:1.68}
+#sat-game .success-terminal-line{min-height:36px;margin-top:20px;padding:10px 12px;border-left:2px solid rgb(97,255,196);color:rgba(97,255,196,.82);background:linear-gradient(90deg,rgba(97,255,196,.08),transparent);font:10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em}
+#sat-game .success-terminal-line::after{content:"█";margin-left:3px;animation:successCursorBlink .7s steps(2,end) infinite}
+#sat-game .completion-status-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:20px}
+#sat-game .completion-status-grid div{padding:11px 8px;border:1px solid rgba(97,255,196,.28);border-radius:10px;background:rgba(97,255,196,.05)}
+#sat-game .completion-status-grid span{display:block;color:#789d97;font:9px ui-monospace,SFMono-Regular,Menlo,monospace}
+#sat-game .completion-status-grid strong{display:block;margin-top:5px;color:rgb(97,255,196);font:12px ui-monospace,SFMono-Regular,Menlo,monospace}
+#sat-game .completion-main-status{margin-top:16px;padding:13px;border:1px solid rgba(97,255,196,.4);border-radius:10px;color:rgb(97,255,196);background:rgba(97,255,196,.07);font:700 11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}
+#sat-game .completion-note{margin:10px 0 0;color:#789d97;font-size:12px}
+#sat-game .completion-card .protocol-start-button{margin-top:18px;background:rgb(97,255,196);border-color:rgb(97,255,196);color:#00120d}
+@keyframes successRadarSweep{to{transform:rotate(360deg)}}
+@keyframes successSatellitePulse{50%{filter:brightness(1.5);transform:scale(1.08);box-shadow:0 0 28px rgba(97,255,196,.28)}}
+@keyframes successPing{0%{box-shadow:0 0 0 0 rgba(97,255,196,.48)}75%,100%{box-shadow:0 0 0 18px rgba(97,255,196,0)}}
+@keyframes successCursorBlink{50%{opacity:0}}
+@keyframes successRadarIn{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:scale(1)}}
+@keyframes successContentIn{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:translateX(0)}}
+#sat-game .hidden{display:none!important}
+@media(max-width:900px){#sat-game .completion-screen{overflow:auto;align-items:start;padding-top:34px;padding-bottom:54px}#sat-game .completion-layout{grid-template-columns:1fr;gap:26px;max-height:none}#sat-game .success-radar{width:min(72vw,330px)}#sat-game .completion-card{text-align:center}#sat-game .completion-card h2,#sat-game .completion-lead{margin-left:auto;margin-right:auto}#sat-game .success-terminal-line{text-align:left}}
+@media(max-width:640px){#sat-game .protocol-start-data{grid-template-columns:1fr}#sat-game .completion-status-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#sat-game .completion-card h2{font-size:clamp(2rem,12vw,3.4rem)}#sat-game .completion-screen::after{display:none}}
+
+
+#sat-game .quarantine-panel{
+  padding:16px;border:1px solid rgba(220,90,90,.35);border-radius:14px;
+  background:rgba(220,90,90,.055)
+}
+#sat-game .quarantine-panel strong{
+  display:block;color:rgb(225,120,120);
+  font:11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.1em
+}
+#sat-game .quarantine-panel p{margin:5px 0 0;color:var(--viz-muted);font-size:13px}
+#sat-game .quarantine-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px}
+#sat-game .quarantine-actions span{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;color:rgb(225,120,120)}
+#sat-game .quarantine-list{margin-top:10px;min-height:42px;padding:10px 12px;border:1px dashed rgba(220,90,90,.32);border-radius:10px;color:var(--viz-muted);font-size:13px}
+#sat-game .satellite-card.quarantined{opacity:.45;filter:saturate(.35);border-style:dashed!important;transform:none!important}
+#sat-game .satellite-card.sat-nyx{border-color:rgba(150,150,160,.45)!important;background:rgba(150,150,160,.06)!important}
+#sat-game .satellite-card.sat-echo{border-color:rgba(220,90,90,.45)!important;background:rgba(220,90,90,.06)!important}
+#sat-game .satellite-card.sat-nyx .signal{color:rgb(165,170,180)}
+#sat-game .satellite-card.sat-echo .signal{color:rgb(220,110,110)}
+
+
+#sat-game .quarantine-panel{
+  transition:border-color .18s ease,background .18s ease,transform .18s ease;
+}
+#sat-game .quarantine-panel.quarantine-target{
+  border-color:rgb(225,120,120)!important;
+  background:rgba(220,90,90,.14)!important;
+  transform:translateY(-2px);
+}
+#sat-game .quarantine-drop-label{
+  flex:1 1 280px;
+  min-height:46px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:8px 12px;
+  border:1px dashed rgba(220,90,90,.55);
+  border-radius:10px;
+  background:rgba(220,90,90,.06);
+  text-align:center;
+}
+#sat-game .satellite-card.sat-rift{
+  border-color:rgba(118,170,255,.48)!important;
+  background:rgba(118,170,255,.07)!important;
+}
+#sat-game .satellite-card.sat-nova{
+  border-color:rgba(240,135,220,.48)!important;
+  background:rgba(240,135,220,.07)!important;
+}
+#sat-game .satellite-card.sat-rift .signal{color:rgb(118,170,255)}
+#sat-game .satellite-card.sat-nova .signal{color:rgb(240,135,220)}
+
+
+/* Arraste robusto por Pointer Events */
+#sat-game .satellite-card {
+  touch-action: pan-y;
+  cursor: grab;
+}
+#sat-game .satellite-card:active { cursor: grabbing; }
+#sat-game .drag-ghost {
+  position: fixed;
+  z-index: 12000;
+  width: 230px;
+  max-width: min(230px, calc(100vw - 24px));
+  pointer-events: none;
+  opacity: .94;
+  transform: translate(-50%, -50%) rotate(1deg) scale(.97);
+  border: 1px solid var(--viz-accent);
+  border-radius: 16px;
+  background: var(--viz-card);
+  box-shadow: 0 18px 60px rgba(0,0,0,.48);
+  margin: 0 !important;
+  will-change: left,top;
+  transition: none !important;
+}
+#sat-game .dragging-source { opacity: .32 !important; }
+#sat-game .channel-slot.target {
+  border-color: var(--viz-accent) !important;
+  background: var(--viz-accent-bg-subtle) !important;
+  transform: translateY(-2px);
+}
+#sat-game .quarantine-panel.quarantine-target {
+  border-color: rgb(225,120,120) !important;
+  background: rgba(220,90,90,.14) !important;
+  transform: translateY(-2px);
+}
+
+
+/* Sliders mais claros e convidativos */
+#sat-game .wave-controls label{
+  padding:15px !important;
+  border-radius:15px !important;
+}
+#sat-game .wave-control-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  font-weight:700;
+}
+#sat-game .wave-controls label{
+  --control-color:var(--viz-accent);
+  --control-soft:var(--viz-accent-bg-subtle);
+}
+#sat-game .wave-controls label strong{
+  color:var(--control-color);
+  font-size:15px;
+}
+#sat-game .wave-control-hint{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:28px;
+  margin-top:10px;
+  border:1px dashed color-mix(in srgb,var(--control-color) 50%,var(--viz-border));
+  border-radius:8px;
+  color:var(--control-color);
+  background:var(--control-soft);
+  font-size:9px;
+  letter-spacing:.12em;
+}
+#sat-game .wave-controls input[type="range"]{
+  --range-progress:50%;
+  width:100%;
+  height:34px;
+  margin-top:10px;
+  padding:0;
+  appearance:none;
+  -webkit-appearance:none;
+  accent-color:var(--control-color);
+  background:transparent;
+  cursor:grab;
+}
+#sat-game .wave-controls input[type="range"]:active{cursor:grabbing}
+#sat-game .wave-controls input[type="range"]::-webkit-slider-runnable-track{
+  height:10px;
+  border:1px solid color-mix(in srgb,var(--control-color) 40%,var(--viz-border));
+  border-radius:999px;
+  background:linear-gradient(90deg,var(--control-color) 0 var(--range-progress),var(--control-soft) var(--range-progress) 100%);
+  box-shadow:inset 0 1px 3px rgba(0,0,0,.35);
+}
+#sat-game .wave-controls input[type="range"]::-webkit-slider-thumb{
+  width:27px;
+  height:27px;
+  margin-top:-10px;
+  appearance:none;
+  -webkit-appearance:none;
+  border:3px solid var(--viz-panel);
+  border-radius:50%;
+  background:var(--control-color);
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--control-color) 25%,transparent),0 4px 12px rgba(0,0,0,.38);
+}
+#sat-game .wave-controls input[type="range"]::-moz-range-track{
+  height:10px;
+  border:1px solid color-mix(in srgb,var(--control-color) 40%,var(--viz-border));
+  border-radius:999px;
+  background:var(--control-soft);
+}
+#sat-game .wave-controls input[type="range"]::-moz-range-progress{height:10px;border-radius:999px;background:var(--control-color)}
+#sat-game .wave-controls input[type="range"]::-moz-range-thumb{
+  width:23px;
+  height:23px;
+  border:3px solid var(--viz-panel);
+  border-radius:50%;
+  background:var(--control-color);
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--control-color) 25%,transparent),0 4px 12px rgba(0,0,0,.38);
+}
+#sat-game .wave-control-frequency{--control-color:rgb(190,150,255);--control-soft:rgba(180,132,255,.10);border-color:rgba(180,132,255,.48)!important}
+#sat-game .wave-control-amplitude{--control-color:rgb(102,214,159);--control-soft:rgba(102,214,159,.10);border-color:rgba(102,214,159,.42)!important}
+#sat-game .wave-control-phase{--control-color:rgb(255,181,87);--control-soft:rgba(255,181,87,.10);border-color:rgba(255,181,87,.44)!important}
+#sat-game #freqSlider{accent-color:rgb(190,150,255)!important}
+#sat-game #ampSlider{accent-color:rgb(102,214,159)!important}
+#sat-game #phaseSlider{accent-color:rgb(255,181,87)!important}
+#sat-game #freqSlider::-webkit-slider-runnable-track{border-color:rgba(190,150,255,.5)!important;background:linear-gradient(90deg,rgb(190,150,255) 0 var(--range-progress),rgba(180,132,255,.10) var(--range-progress) 100%)!important}
+#sat-game #ampSlider::-webkit-slider-runnable-track{border-color:rgba(102,214,159,.5)!important;background:linear-gradient(90deg,rgb(102,214,159) 0 var(--range-progress),rgba(102,214,159,.10) var(--range-progress) 100%)!important}
+#sat-game #phaseSlider::-webkit-slider-runnable-track{border-color:rgba(255,181,87,.5)!important;background:linear-gradient(90deg,rgb(255,181,87) 0 var(--range-progress),rgba(255,181,87,.10) var(--range-progress) 100%)!important}
+#sat-game #freqSlider::-webkit-slider-thumb{background:rgb(190,150,255)!important;box-shadow:0 0 0 4px rgba(190,150,255,.24),0 4px 12px rgba(0,0,0,.38)!important}
+#sat-game #ampSlider::-webkit-slider-thumb{background:rgb(102,214,159)!important;box-shadow:0 0 0 4px rgba(102,214,159,.24),0 4px 12px rgba(0,0,0,.38)!important}
+#sat-game #phaseSlider::-webkit-slider-thumb{background:rgb(255,181,87)!important;box-shadow:0 0 0 4px rgba(255,181,87,.24),0 4px 12px rgba(0,0,0,.38)!important}
+#sat-game #freqSlider::-moz-range-track{border-color:rgba(190,150,255,.5)!important;background:rgba(180,132,255,.10)!important}
+#sat-game #ampSlider::-moz-range-track{border-color:rgba(102,214,159,.5)!important;background:rgba(102,214,159,.10)!important}
+#sat-game #phaseSlider::-moz-range-track{border-color:rgba(255,181,87,.5)!important;background:rgba(255,181,87,.10)!important}
+#sat-game #freqSlider::-moz-range-progress,#sat-game #freqSlider::-moz-range-thumb{background:rgb(190,150,255)!important}
+#sat-game #ampSlider::-moz-range-progress,#sat-game #ampSlider::-moz-range-thumb{background:rgb(102,214,159)!important}
+#sat-game #phaseSlider::-moz-range-progress,#sat-game #phaseSlider::-moz-range-thumb{background:rgb(255,181,87)!important}
+
+
+/* ===== DESAFIO 1: FORMATO AMPLO E LIMPO ===== */
+#sat-game .first-challenge{padding:22px}
+#sat-game .first-challenge-header{margin-bottom:20px}
+#sat-game .challenge-brief{max-width:760px;margin:10px 0 0;color:var(--viz-muted);font-size:14px;line-height:1.65}
+#sat-game .challenge-brief strong{color:var(--viz-text)}
+#sat-game .first-challenge-board{display:grid;grid-template-columns:minmax(290px,34%) minmax(0,1fr);gap:18px;align-items:start}
+#sat-game .signal-column,#sat-game .channel-area,#sat-game .quarantine-area{border:1px solid var(--viz-border);border-radius:16px;background:color-mix(in srgb,var(--viz-card) 80%,transparent)}
+#sat-game .signal-column{position:sticky;top:12px;padding:14px}
+#sat-game .destination-column{display:grid;gap:16px;min-width:0}
+#sat-game .channel-area{padding:16px}
+#sat-game .quarantine-area{margin-top:0!important;padding:16px;min-height:160px}
+#sat-game .board-title{margin-bottom:12px}
+#sat-game .board-title>span,#sat-game .board-title-row>div>span{display:block;color:var(--viz-text);font:700 13px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}
+#sat-game .board-title small,#sat-game .board-title-row small{display:block;margin-top:4px;color:var(--viz-muted);font-size:11px;line-height:1.45}
+#sat-game .board-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+#sat-game .signal-card-list{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#sat-game .channel-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+#sat-game .signal-column .satellite-card{min-height:106px;padding:12px!important;border-color:color-mix(in srgb,var(--sat-color) 46%,var(--viz-border))!important;background:linear-gradient(135deg,var(--sat-soft),rgba(255,255,255,.012))!important}
+#sat-game .signal-column .satellite-card .signal{margin-top:6px!important;color:var(--sat-color)!important;font-size:14px;letter-spacing:.14em}
+#sat-game .signal-column .satellite-card:hover,#sat-game .signal-column .satellite-card.selected{border-color:var(--sat-color)!important;background:var(--sat-soft)!important}
+#sat-game .signal-column .satellite-card::before{display:none}
+#sat-game .drag-ghost::before{display:none!important}
+#sat-game .satellite-card::after{background:var(--sat-color)}
+#sat-game .sat-card-name{display:block;margin-bottom:11px;color:var(--sat-color);font:900 14px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.09em}
+#sat-game .sat-card-field{display:block}
+#sat-game .sat-card-field+.sat-card-field{margin-top:12px}
+#sat-game .sat-card-label{display:block;color:var(--viz-muted);font:800 10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.09em;text-transform:uppercase}
+#sat-game .sat-card-pattern{display:block;line-height:1.45}
+#sat-game .sat-card-frequency-value{display:block;margin-top:5px;color:var(--viz-text);font:800 15px ui-monospace,SFMono-Regular,Menlo,monospace}
+#sat-game .sat-frequency-block{display:none}
+#sat-game .channel-slot{min-height:248px;padding:16px!important}
+#sat-game .channel-slot::before{display:block}
+#sat-game .channel-header{font:800 14px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}
+#sat-game .channel-requirements{display:grid;grid-template-columns:1fr;gap:9px;margin-top:13px}
+#sat-game .channel-requirement{padding:10px 11px}
+#sat-game .channel-requirement strong{font-size:13px}
+#sat-game .channel-requirement .signal{font-size:15px;letter-spacing:.16em}
+#sat-game .channel-frequency strong{font-size:17px}
+#sat-game .assigned{min-height:68px;margin-top:12px;padding:6px}
+#sat-game .assigned-empty{min-height:54px;font:700 10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.07em}
+#sat-game .channel-slot.has-assignment{min-height:248px;border-style:solid!important}
+#sat-game .placed-satellite{min-height:112px!important;padding:12px!important;border-color:color-mix(in srgb,var(--sat-color) 62%,var(--viz-border))!important;background:linear-gradient(135deg,var(--sat-soft),rgba(255,255,255,.014))!important}
+#sat-game .placed-satellite::before{display:none!important}
+#sat-game .placed-satellite .signal{margin-top:8px;font-size:13px;letter-spacing:.12em}
+#sat-game .quarantine-heading>span{color:rgb(225,120,120)}
+#sat-game .quarantine-area .quarantine-drop-label{min-height:58px;font-size:10px;letter-spacing:.09em}
+#sat-game .quarantine-area .quarantine-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px}
+#sat-game .quarantine-area .quarantine-list{min-height:42px;margin-top:10px;padding:10px 12px;font-size:12px;line-height:1.45;text-align:left}
+#sat-game .channel-slot.target{box-shadow:0 0 0 2px rgba(94,220,255,.18) inset}
+#sat-game .quarantine-panel.quarantine-target{box-shadow:0 0 0 2px rgba(225,120,120,.20) inset}
+@media(max-width:900px){#sat-game .first-challenge-board{grid-template-columns:minmax(250px,38%) minmax(0,1fr)}#sat-game .channel-grid{grid-template-columns:1fr}}
+@media(max-width:720px){#sat-game .first-challenge-board{grid-template-columns:1fr}#sat-game .signal-column{position:static}#sat-game .signal-card-list{grid-template-columns:1fr 1fr}#sat-game .board-title-row{flex-direction:column}}
+@media(max-width:430px){#sat-game .signal-card-list{grid-template-columns:1fr}}
+
+/* Central de treinamento: cada passo possui uma demonstração animada */
+#sat-game .tutorial-hub{
+  padding:20px;
+  border:1px solid color-mix(in srgb,var(--viz-accent) 42%,var(--viz-border));
+  border-radius:20px;
+  background:linear-gradient(135deg,var(--viz-accent-bg-subtle),transparent 54%),var(--viz-panel);
+}
+#sat-game .tutorial-hub-header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+#sat-game .tutorial-hub-header h2{margin:5px 0 0;font-size:20px;letter-spacing:.02em}
+#sat-game .tutorial-hub-header p{max-width:680px;margin:7px 0 0;color:var(--viz-muted);font-size:13px;line-height:1.55}
+#sat-game .tutorial-guide{margin-top:14px;border:1px solid var(--viz-border);border-radius:16px;background:rgba(255,255,255,.014);overflow:hidden}
+#sat-game .tutorial-guide summary{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;list-style:none;user-select:none}
+#sat-game .tutorial-guide summary::-webkit-details-marker{display:none}
+#sat-game .tutorial-guide summary::after{content:"+";margin-left:auto;color:var(--viz-muted);font:18px ui-monospace,SFMono-Regular,Menlo,monospace}
+#sat-game .tutorial-guide[open] summary::after{content:"−"}
+#sat-game .tutorial-guide summary strong{display:block;font:700 12px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}
+#sat-game .tutorial-guide summary small{display:block;margin-top:3px;color:var(--viz-muted);font-size:11px}
+#sat-game .tutorial-guide-number{display:grid;place-items:center;width:34px;height:34px;flex:0 0 34px;border:1px solid currentColor;border-radius:10px;font:700 12px ui-monospace,SFMono-Regular,Menlo,monospace}
+#sat-game .tutorial-guide-one .tutorial-guide-number{color:rgb(102,214,159);background:rgba(102,214,159,.08)}
+#sat-game .tutorial-guide-two .tutorial-guide-number{color:rgb(190,150,255);background:rgba(180,132,255,.09)}
+#sat-game .tutorial-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:0 14px 14px}
+#sat-game .tutorial-step{min-width:0;padding:12px;border:1px solid var(--viz-border);border-radius:14px;background:color-mix(in srgb,var(--viz-card) 86%,transparent)}
+#sat-game .tutorial-step-heading{display:flex;align-items:center;gap:8px}
+#sat-game .tutorial-step-heading b{display:grid;place-items:center;width:25px;height:25px;flex:0 0 25px;border:1px solid var(--viz-border);border-radius:50%;color:var(--viz-accent);font:11px ui-monospace,SFMono-Regular,Menlo,monospace}
+#sat-game .tutorial-step-heading strong{font:700 11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.055em}
+#sat-game .tutorial-step>p{min-height:64px;margin:9px 0 0;color:var(--viz-muted);font-size:11px;line-height:1.52}
+#sat-game .tutorial-step>p strong{color:var(--viz-text)}
+#sat-game .tutorial-scene{position:relative;height:116px;margin-top:11px;overflow:hidden;border:1px solid var(--viz-border);border-radius:11px;background:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px),rgba(3,7,13,.62);background-size:18px 18px}
+#sat-game .tutorial-scene-label{position:absolute;left:8px;top:7px;color:var(--viz-muted);font:8px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}
+#sat-game .tutorial-mini-card{display:grid;place-items:center;width:70px;min-height:38px;padding:5px;border:1px solid rgba(102,214,159,.62);border-radius:8px;color:rgb(102,214,159);background:rgba(102,214,159,.11);font:9px ui-monospace,SFMono-Regular,Menlo,monospace;text-align:center}
+#sat-game .tutorial-mini-destination{position:absolute;right:7px;top:34px;display:grid;place-items:center;width:78px;height:62px;border:1px dashed var(--viz-accent);border-radius:9px;color:var(--viz-accent);background:var(--viz-accent-bg-subtle);font:8px ui-monospace,SFMono-Regular,Menlo,monospace;text-align:center}
+#sat-game .tutorial-mini-destination.is-trash{border-color:rgba(225,120,120,.65);color:rgb(225,120,120);background:rgba(220,90,90,.09)}
+#sat-game .tutorial-mini-destination.is-trash{animation-name:tutorialTrashDestination}
+#sat-game .tutorial-cursor-icon{position:absolute;z-index:4;color:#fff;font:22px/1 system-ui;text-shadow:0 2px 7px #000;transform:rotate(-14deg)}
+#sat-game .tutorial-drag-pack{position:absolute;z-index:3;left:7%;top:43px;animation:tutorialDragRight 4.2s ease-in-out infinite}
+#sat-game .tutorial-drag-pack .tutorial-cursor-icon{right:-14px;bottom:-12px}
+#sat-game .tutorial-mini-destination{animation:tutorialDestination 4.2s ease-in-out infinite}
+#sat-game .tutorial-channel-card{position:absolute;inset:24px 8px 8px;padding:9px;border:1px solid var(--viz-border);border-radius:9px;background:rgba(94,220,255,.05)}
+#sat-game .tutorial-channel-card span{display:block;color:var(--viz-muted);font:8px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}
+#sat-game .tutorial-channel-card strong{display:block;margin-top:4px;color:var(--viz-accent);font:10px ui-monospace,SFMono-Regular,Menlo,monospace}
+#sat-game .tutorial-scan-line{position:absolute;left:8px;right:8px;height:2px;top:34px;background:linear-gradient(90deg,transparent,var(--viz-accent),transparent);box-shadow:0 0 10px var(--viz-accent);animation:tutorialScan 2.8s ease-in-out infinite}
+#sat-game .tutorial-pair-card{position:absolute;top:38px;width:76px;padding:8px 5px;border:1px solid rgba(102,214,159,.55);border-radius:8px;color:rgb(102,214,159);background:rgba(102,214,159,.08);font:9px ui-monospace,SFMono-Regular,Menlo,monospace;text-align:center}
+#sat-game .tutorial-pair-card.card-a{left:9px}#sat-game .tutorial-pair-card.card-b{right:9px}
+#sat-game .tutorial-pair-cursor{left:19px;bottom:9px;animation:tutorialCompare 3.4s ease-in-out infinite}
+#sat-game .tutorial-frequency-range{position:absolute;left:8px;right:8px;top:24px;padding:6px;border:1px solid var(--viz-border);border-radius:7px;color:var(--viz-muted);font:8px ui-monospace,SFMono-Regular,Menlo,monospace;text-align:center}
+#sat-game .tutorial-frequency-choice{position:absolute;top:65px;padding:7px;border:1px solid var(--viz-border);border-radius:7px;color:var(--viz-muted);background:var(--viz-card);font:9px ui-monospace,SFMono-Regular,Menlo,monospace}
+#sat-game .tutorial-frequency-choice.wrong{left:10px}#sat-game .tutorial-frequency-choice.correct{right:10px;color:rgb(102,214,159);border-color:rgba(102,214,159,.65);animation:tutorialCorrect 2.8s ease-in-out infinite}
+#sat-game .tutorial-frequency-cursor{left:25px;bottom:4px;animation:tutorialChoose 2.8s ease-in-out infinite}
+#sat-game .tutorial-wave-svg{position:absolute;left:8px;right:8px;top:24px;width:calc(100% - 16px);height:72px;overflow:visible}
+#sat-game .tutorial-wave-target,#sat-game .tutorial-wave-player{fill:none;stroke-width:2.2;vector-effect:non-scaling-stroke}
+#sat-game .tutorial-wave-target{stroke:rgba(205,220,225,.62);stroke-dasharray:5 4}
+#sat-game .tutorial-wave-player{stroke:rgb(190,150,255);transform-box:fill-box;transform-origin:center}
+#sat-game .tutorial-wave-observe .tutorial-wave-player{animation:tutorialWaveObserve 3s ease-in-out infinite}
+#sat-game .tutorial-wave-frequency .tutorial-wave-player{animation:tutorialWaveFrequency 3.6s ease-in-out infinite}
+#sat-game .tutorial-wave-shape .tutorial-wave-player{animation:tutorialWaveShape 4s ease-in-out infinite}
+#sat-game .tutorial-slider{position:absolute;left:12px;right:12px;bottom:11px;height:5px;border-radius:999px;background:rgba(180,132,255,.18)}
+#sat-game .tutorial-slider::after{content:"";position:absolute;left:16%;top:50%;width:13px;height:13px;border:2px solid rgb(190,150,255);border-radius:50%;background:var(--viz-panel);transform:translate(-50%,-50%);animation:tutorialSlider 3.6s ease-in-out infinite}
+#sat-game .tutorial-double-slider{position:absolute;left:12px;right:12px;bottom:8px;display:grid;gap:8px}
+#sat-game .tutorial-double-slider i{position:relative;display:block;height:4px;border-radius:999px;background:rgba(180,132,255,.18)}
+#sat-game .tutorial-double-slider i::after{content:"";position:absolute;left:20%;top:50%;width:11px;height:11px;border:2px solid rgb(190,150,255);border-radius:50%;background:var(--viz-panel);transform:translate(-50%,-50%);animation:tutorialSlider 4s ease-in-out infinite}
+#sat-game .tutorial-double-slider i:last-child::after{animation-delay:.35s}
+#sat-game .tutorial-sync-demo{position:absolute;inset:25px 10px 10px}
+#sat-game .tutorial-sync-demo strong{display:block;color:rgb(190,150,255);font:800 25px ui-monospace,SFMono-Regular,Menlo,monospace;animation:tutorialSyncColor 3.7s ease-in-out infinite}
+#sat-game .tutorial-sync-bar{height:9px;margin-top:7px;overflow:hidden;border-radius:999px;background:rgba(180,132,255,.14)}
+#sat-game .tutorial-sync-bar i{display:block;width:38%;height:100%;border-radius:inherit;background:rgb(190,150,255);animation:tutorialSyncBar 3.7s ease-in-out infinite}
+#sat-game .tutorial-validate-button{position:absolute;right:0;bottom:0;padding:7px 8px;border:1px solid rgba(180,132,255,.48);border-radius:7px;color:rgb(190,150,255);background:rgba(180,132,255,.09);font:8px ui-monospace,SFMono-Regular,Menlo,monospace;animation:tutorialValidate 3.7s ease-in-out infinite}
+#sat-game .tutorial-validate-cursor{right:15px;bottom:2px;animation:tutorialValidateCursor 3.7s ease-in-out infinite}
+@keyframes tutorialDragRight{0%,16%{left:7%;transform:scale(1)}55%,78%{left:58%;transform:scale(.96)}100%{left:7%;transform:scale(1)}}
+@keyframes tutorialDestination{0%,35%,100%{box-shadow:none;filter:none}55%,78%{box-shadow:0 0 0 3px rgba(94,220,255,.12);filter:brightness(1.25)}}
+@keyframes tutorialTrashDestination{0%,35%,100%{box-shadow:none;filter:none}55%,78%{box-shadow:0 0 0 3px rgba(225,120,120,.14);filter:brightness(1.25)}}
+@keyframes tutorialScan{0%,100%{top:34px;opacity:.35}50%{top:91px;opacity:1}}
+@keyframes tutorialCompare{0%,18%{left:19px}48%,70%{left:calc(100% - 45px)}100%{left:19px}}
+@keyframes tutorialCorrect{0%,28%,100%{box-shadow:none}48%,78%{box-shadow:0 0 0 3px rgba(102,214,159,.12);filter:brightness(1.25)}}
+@keyframes tutorialChoose{0%,20%{left:25px}50%,78%{left:calc(100% - 48px)}100%{left:25px}}
+@keyframes tutorialWaveObserve{0%,100%{opacity:.35;transform:translateX(-8px)}50%{opacity:1;transform:translateX(0)}}
+@keyframes tutorialWaveFrequency{0%,18%{transform:scaleX(.72)}58%,82%{transform:scaleX(1)}100%{transform:scaleX(.72)}}
+@keyframes tutorialWaveShape{0%,18%{transform:translateX(-10px) scaleY(.52)}58%,82%{transform:translateX(0) scaleY(1)}100%{transform:translateX(-10px) scaleY(.52)}}
+@keyframes tutorialSlider{0%,18%{left:16%}58%,82%{left:72%}100%{left:16%}}
+@keyframes tutorialSyncBar{0%,18%{width:38%;background:rgb(190,150,255)}58%,82%{width:94%;background:#70e6a5}100%{width:38%;background:rgb(190,150,255)}}
+@keyframes tutorialSyncColor{0%,18%,100%{color:rgb(190,150,255)}58%,82%{color:#70e6a5}}
+@keyframes tutorialValidate{0%,44%,100%{opacity:.45;transform:none}58%,82%{opacity:1;border-color:#70e6a5;color:#70e6a5;box-shadow:0 0 0 3px rgba(112,230,165,.09)}72%{transform:scale(.96)}}
+@keyframes tutorialValidateCursor{0%,48%,100%{opacity:0;transform:translate(-20px,10px) rotate(-14deg)}60%,78%{opacity:1;transform:translate(0,0) rotate(-14deg)}}
+@media(max-width:960px){#sat-game .tutorial-steps{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:580px){#sat-game .tutorial-hub{padding:14px}#sat-game .tutorial-hub-header{display:block}#sat-game .tutorial-steps{grid-template-columns:1fr}#sat-game .tutorial-step>p{min-height:0}}
+@media(prefers-reduced-motion:reduce){#sat-game .tutorial-hub *{animation-duration:.001ms!important;animation-iteration-count:1!important}}
+
+/* Tutorial sequencial e bloqueio dos desafios */
+#sat-game .tutorial-gate{--tutorial-color:rgb(102,214,159);--tutorial-soft:rgba(102,214,159,.10);border-color:color-mix(in srgb,var(--tutorial-color) 58%,var(--viz-border));background:linear-gradient(135deg,var(--tutorial-soft),transparent 58%),var(--viz-panel)}
+#sat-game .tutorial-gate-two{--tutorial-color:rgb(190,150,255);--tutorial-soft:rgba(180,132,255,.11)}
+#sat-game .tutorial-gate .tutorial-hub-header{align-items:center}
+#sat-game .tutorial-gate .tutorial-hub-header h2{font-size:22px}
+#sat-game .tutorial-gate .tutorial-hub-header .viz-badge{border-color:var(--tutorial-color);color:var(--tutorial-color);background:var(--tutorial-soft)}
+#sat-game .tutorial-stepper{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:20px}
+#sat-game .tutorial-stepper span{position:relative;display:grid;justify-items:center;gap:6px;color:var(--viz-muted);text-align:center}
+#sat-game .tutorial-stepper span:not(:last-child)::after{content:"";position:absolute;z-index:0;left:calc(50% + 22px);right:calc(-50% + 22px);top:16px;height:2px;background:var(--viz-border);transition:background .22s ease}
+#sat-game .tutorial-stepper b{position:relative;z-index:1;display:grid;place-items:center;width:34px;height:34px;border:1px solid var(--viz-border);border-radius:10px;background:var(--viz-panel);font:700 12px ui-monospace,SFMono-Regular,Menlo,monospace;transition:color .2s ease,border-color .2s ease,background .2s ease,transform .2s ease}
+#sat-game .tutorial-stepper small{font:8px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em}
+#sat-game .tutorial-stepper span.is-current b{color:var(--tutorial-color);border-color:var(--tutorial-color);background:var(--tutorial-soft);transform:translateY(-2px);box-shadow:0 0 0 3px var(--tutorial-soft)}
+#sat-game .tutorial-stepper span.is-current small,#sat-game .tutorial-stepper span.is-done small{color:var(--tutorial-color)}
+#sat-game .tutorial-stepper span.is-done b{color:var(--tutorial-color);border-color:color-mix(in srgb,var(--tutorial-color) 65%,transparent);background:var(--tutorial-soft)}
+#sat-game .tutorial-stepper span.is-done:not(:last-child)::after{background:color-mix(in srgb,var(--tutorial-color) 65%,var(--viz-border))}
+#sat-game .tutorial-gate .tutorial-steps{display:block;padding:14px 0 0}
+#sat-game .tutorial-gate .tutorial-step{display:none;min-height:220px;padding:18px;grid-template-columns:minmax(0,1fr) minmax(260px,.9fr);grid-template-rows:auto 1fr;gap:10px 22px;border-color:color-mix(in srgb,var(--tutorial-color) 32%,var(--viz-border));background:linear-gradient(135deg,var(--tutorial-soft),transparent 72%),color-mix(in srgb,var(--viz-card) 88%,transparent)}
+#sat-game .tutorial-gate .tutorial-step.is-active{display:grid;animation:tutorialStepIn .25s ease both}
+#sat-game .tutorial-gate .tutorial-step-heading{grid-column:1;grid-row:1}
+#sat-game .tutorial-gate .tutorial-step-heading b{color:var(--tutorial-color);border-color:var(--tutorial-color);background:var(--tutorial-soft)}
+#sat-game .tutorial-gate .tutorial-step-heading strong{font-size:15px}
+#sat-game .tutorial-gate .tutorial-step>p{grid-column:1;grid-row:2;min-height:0;margin:4px 0 0;font-size:14px;line-height:1.65}
+#sat-game .tutorial-gate .tutorial-scene{grid-column:2;grid-row:1/3;height:182px;margin:0;border-color:color-mix(in srgb,var(--tutorial-color) 30%,var(--viz-border))}
+#sat-game .tutorial-gate-nav{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;margin-top:14px}
+#sat-game .tutorial-gate-nav .tutorial-counter{color:var(--viz-muted);font:10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;text-align:center}
+#sat-game .tutorial-nav-button{min-height:44px;padding:10px 15px;border:1px solid var(--viz-border);border-radius:11px;color:var(--viz-text);background:color-mix(in srgb,var(--viz-card) 82%,transparent);font:700 11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em}
+#sat-game .tutorial-nav-button[data-tutorial-next]{justify-self:end;border-color:var(--tutorial-color);color:#00130d;background:var(--tutorial-color);box-shadow:0 0 0 3px var(--tutorial-soft)}
+#sat-game .tutorial-nav-button[hidden]{visibility:hidden;display:block}
+#sat-game .tutorial-complete-banner{display:none;align-items:center;justify-content:center;gap:12px;min-height:86px;color:var(--tutorial-color);text-align:center}
+#sat-game .tutorial-complete-banner b{display:grid;place-items:center;width:38px;height:38px;border:1px solid var(--tutorial-color);border-radius:50%;background:var(--tutorial-soft);font-size:18px}
+#sat-game .tutorial-complete-banner strong{display:block;font:700 13px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.07em}
+#sat-game .tutorial-complete-banner small{display:block;margin-top:4px;color:var(--viz-muted);font-size:11px}
+#sat-game .tutorial-gate.is-complete>:not(.tutorial-complete-banner){display:none!important}
+#sat-game .tutorial-gate.is-complete .tutorial-complete-banner{display:flex}
+#sat-game #tutorialGate1 .tutorial-hub-header h2{font-size:clamp(32px,4vw,46px);line-height:1.05;letter-spacing:-.03em}
+#sat-game #tutorialGate1 .tutorial-hub-header p{max-width:760px;font-size:15px;line-height:1.65}
+#sat-game #tutorialGate1 .tutorial-stepper{grid-template-columns:repeat(5,minmax(0,1fr))}
+#sat-game #tutorialGate1 .tutorial-stepper b{width:42px;height:42px;font-size:15px}
+#sat-game #tutorialGate1 .tutorial-stepper small{font-size:10px}
+#sat-game #tutorialGate1 .tutorial-stepper span:not(:last-child)::after{top:20px}
+#sat-game #tutorialGate1 .tutorial-step{min-height:274px;padding:24px;grid-template-columns:minmax(0,1fr) minmax(320px,.95fr)}
+#sat-game #tutorialGate1 .tutorial-step-heading{gap:11px}
+#sat-game #tutorialGate1 .tutorial-step-heading b{width:34px;height:34px;flex-basis:34px;font-size:14px}
+#sat-game #tutorialGate1 .tutorial-step-heading strong{font-size:19px}
+#sat-game #tutorialGate1 .tutorial-step>p{font-size:17px;line-height:1.65}
+#sat-game #tutorialGate1 .tutorial-scene{height:220px}
+#sat-game #tutorialGate1 .tutorial-scene-label{left:12px;top:10px;font-size:10px}
+#sat-game #tutorialGate1 .tutorial-channel-card{inset:38px 12px 12px;padding:14px}
+#sat-game #tutorialGate1 .tutorial-channel-card span{font-size:10px}
+#sat-game #tutorialGate1 .tutorial-channel-card strong{font-size:14px}
+#sat-game #tutorialGate1 .tutorial-scan-line{left:12px;right:12px;animation-name:tutorialScanChallengeOne}
+#sat-game #tutorialGate1 .tutorial-pair-card{top:62px;width:105px;padding:14px 8px;font-size:12px}
+#sat-game #tutorialGate1 .tutorial-pair-card small{display:block;margin-bottom:8px;color:var(--viz-muted);font:9px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}
+#sat-game #tutorialGate1 .tutorial-frequency-range{left:12px;right:12px;top:44px;padding:12px;font-size:12px}
+#sat-game #tutorialGate1 .tutorial-frequency-choice{top:112px;padding:12px 14px;font-size:13px}
+#sat-game #tutorialGate1 .tutorial-frequency-choice.wrong{left:22px}
+#sat-game #tutorialGate1 .tutorial-frequency-choice.correct{right:22px}
+#sat-game #tutorialGate1 .tutorial-frequency-cursor{bottom:14px}
+#sat-game #tutorialGate1 .tutorial-mini-card{width:112px;min-height:72px;font-size:10px;line-height:1.35}
+#sat-game #tutorialGate1 .tutorial-mini-card small{display:block;color:var(--viz-muted);font-size:8px;letter-spacing:.07em}
+#sat-game #tutorialGate1 .tutorial-mini-destination{right:12px;top:62px;width:112px;height:92px;font-size:11px}
+#sat-game #tutorialGate1 .tutorial-drag-pack{top:70px}
+#sat-game #tutorialGate1 .tutorial-counter{font-size:12px}
+#sat-game #clearBtn{min-height:48px;padding:11px 17px!important;border-color:rgba(255,194,92,.86)!important;color:#ffd083;background:rgba(255,174,54,.13);box-shadow:0 0 0 3px rgba(255,174,54,.06);font-weight:800;letter-spacing:.045em}
+#sat-game #clearBtn:hover{border-color:#ffd083!important;background:rgba(255,174,54,.2);transform:translateY(-1px)}
+#sat-game .challenge-one-actions,#sat-game .wave-actions{justify-content:flex-end}
+#sat-game .status-console.is-success{border-color:rgba(102,214,159,.65)!important;color:rgb(133,235,184);background:linear-gradient(90deg,rgba(102,214,159,.13),rgba(102,214,159,.035))}
+#sat-game .status-console.is-success .status-dot{background:rgb(102,214,159);box-shadow:0 0 0 4px rgba(102,214,159,.12)}
+#sat-game #frequencyFeedback,#sat-game #codeFeedback{min-height:44px;padding:11px 13px;border:1px solid var(--viz-border);border-radius:11px;background:rgba(255,255,255,.018)}
+#sat-game #frequencyFeedback.is-success,#sat-game #codeFeedback.is-success{border-color:rgba(102,214,159,.62);color:rgb(133,235,184)!important;background:linear-gradient(90deg,rgba(102,214,159,.13),rgba(102,214,159,.035));box-shadow:0 0 0 3px rgba(102,214,159,.04)}
+#sat-game .final-code-entry{width:min(560px,100%);margin:28px auto 0;text-align:center}
+#sat-game .final-code-entry label{font-size:16px;font-weight:800;letter-spacing:.04em}
+#sat-game .final-code-entry #codeInput{display:block;min-height:78px;margin-top:12px;font-size:34px;font-weight:800;letter-spacing:.42em;text-indent:.42em}
+#sat-game .final-code-entry #codeBtn{display:block;min-height:54px;margin-top:14px}
+#sat-game #codeFeedback{text-align:center}
+#sat-game .tutorial-clear-scene .tutorial-wrong-connection{position:absolute;left:16px;top:49px;width:145px;padding:13px;border:1px solid rgba(225,120,120,.7);border-radius:10px;background:rgba(220,90,90,.1);animation:tutorialWrongConnection 4.2s ease-in-out infinite}
+#sat-game .tutorial-wrong-connection span{display:block;color:var(--viz-muted);font:9px ui-monospace,SFMono-Regular,Menlo,monospace}
+#sat-game .tutorial-wrong-connection strong{display:block;margin-top:5px;color:rgb(225,120,120);font:700 14px ui-monospace,SFMono-Regular,Menlo,monospace}
+#sat-game .tutorial-wrong-connection em{display:block;margin-top:7px;color:rgb(225,120,120);font:8px ui-monospace,SFMono-Regular,Menlo,monospace;font-style:normal}
+#sat-game .tutorial-clear-demo-button{position:absolute;right:14px;bottom:36px;padding:12px 13px;border:1px solid rgba(255,194,92,.86);border-radius:9px;color:#ffd083;background:rgba(255,174,54,.13);font:800 10px ui-monospace,SFMono-Regular,Menlo,monospace;animation:tutorialClearButton 4.2s ease-in-out infinite}
+#sat-game .tutorial-clear-cursor{right:32px;bottom:18px;animation:tutorialClearCursor 4.2s ease-in-out infinite}
+#sat-game .challenge-zone{position:relative}
+#sat-game .challenge-lock-overlay{display:none}
+#sat-game .challenge-zone.tutorial-locked{min-height:260px;overflow:hidden}
+#sat-game .challenge-zone.tutorial-locked>.challenge-lock-overlay{position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(3,7,13,.74);backdrop-filter:blur(2px)}
+#sat-game .challenge-zone.tutorial-locked>:not(.challenge-lock-overlay){opacity:.22;filter:blur(3px);pointer-events:none;user-select:none}
+#sat-game .challenge-lock-card{width:min(420px,100%);padding:20px;border:1px solid var(--tutorial-color,var(--viz-accent));border-radius:16px;background:var(--viz-panel);box-shadow:0 18px 55px rgba(0,0,0,.35);text-align:center}
+#sat-game .challenge-lock-card b{display:grid;place-items:center;width:48px;height:48px;margin:0 auto 12px;border:1px solid var(--tutorial-color,var(--viz-accent));border-radius:50%;color:var(--tutorial-color,var(--viz-accent));background:var(--tutorial-soft,var(--viz-accent-bg-subtle));font-size:21px}
+#sat-game .challenge-lock-card strong{display:block;font:700 13px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}
+#sat-game .challenge-lock-card span{display:block;margin-top:7px;color:var(--viz-muted);font-size:12px;line-height:1.5}
+#sat-game #challengeOne{--tutorial-color:rgb(102,214,159);--tutorial-soft:rgba(102,214,159,.10)}
+#sat-game #calibrationStage{--tutorial-color:rgb(190,150,255);--tutorial-soft:rgba(180,132,255,.11)}
+@keyframes tutorialStepIn{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:translateX(0)}}
+@keyframes tutorialWrongConnection{0%,42%,100%{opacity:1;transform:none}62%,82%{opacity:.18;transform:translateY(5px)}}
+@keyframes tutorialClearButton{0%,42%,100%{box-shadow:none;transform:none}56%,78%{box-shadow:0 0 0 4px rgba(255,174,54,.14);transform:scale(.98)}}
+@keyframes tutorialClearCursor{0%,36%,100%{opacity:0;transform:translate(-60px,-24px) rotate(-14deg)}52%,78%{opacity:1;transform:translate(0,0) rotate(-14deg)}}
+@keyframes tutorialScanChallengeOne{0%,100%{top:55px;opacity:.35}50%{top:181px;opacity:1}}
+@media(max-width:720px){#sat-game .tutorial-gate .tutorial-step.is-active{grid-template-columns:1fr;grid-template-rows:auto auto auto}#sat-game .tutorial-gate .tutorial-step-heading,#sat-game .tutorial-gate .tutorial-step>p,#sat-game .tutorial-gate .tutorial-scene{grid-column:1}#sat-game .tutorial-gate .tutorial-step-heading{grid-row:1}#sat-game .tutorial-gate .tutorial-step>p{grid-row:2}#sat-game .tutorial-gate .tutorial-scene{grid-row:3;height:160px;margin-top:5px}#sat-game .tutorial-stepper small{display:none}}
+@media(max-width:480px){#sat-game .tutorial-gate-nav{grid-template-columns:1fr 1fr}#sat-game .tutorial-gate-nav .tutorial-counter{grid-column:1/-1;grid-row:1}#sat-game .tutorial-nav-button{grid-row:2}#sat-game .tutorial-gate .tutorial-step{padding:13px}}
+
+/* Ajustes de usabilidade: leitura, progresso, interação e feedback */
+:root{
+  --viz-muted:#abc4cc;
+  --viz-border:rgba(94,220,255,.30);
+}
+body.mission-active:not(.success-active) .challenge-code-canvas{opacity:.34}
+#sat-game .success-code-canvas{opacity:.18}
+#sat-game .mono-label{font-size:12px;line-height:1.45}
+#sat-game .hud-stat span,#sat-game .channel-requirement span,#sat-game .sat-frequency-block span{font-size:10px}
+#sat-game .flow-step strong{font-size:11px}
+#sat-game .flow-step small{font-size:12px;line-height:1.35}
+#sat-game .challenge-brief{max-width:920px;color:#c7dbe1;font-size:15px;line-height:1.6}
+#sat-game .interaction-help{display:flex;align-items:center;gap:10px;margin-top:13px;padding:11px 13px;border:1px solid rgba(102,214,159,.42);border-radius:11px;color:#c7dbe1;background:rgba(102,214,159,.065);font-size:13px;line-height:1.45}
+#sat-game .interaction-help b{color:rgb(133,235,184);font:800 11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.07em;white-space:nowrap}
+#sat-game .satellite-card::before{content:"↕ ARRASTE OU SELECIONE";font-size:10px;font-weight:800;opacity:1}
+#sat-game .channel-slot.has-error{border-color:#ee7777!important;box-shadow:0 0 0 3px rgba(238,119,119,.12)}
+#sat-game .channel-slot.has-error .channel-header::after{content:"⚠";display:grid;place-items:center;width:27px;height:27px;flex:0 0 27px;border:1px solid #ff8c8c;border-radius:8px;color:#ffd1d1;background:rgba(238,119,119,.16);box-shadow:0 0 0 3px rgba(238,119,119,.08);font:900 17px/1 system-ui;animation:channelAlertPulse 1.8s ease-in-out infinite}
+#sat-game .quarantine-panel.has-error{border-color:#ee7777!important;box-shadow:0 0 0 3px rgba(238,119,119,.12)}
+#sat-game .quarantine-panel.has-error .quarantine-heading::after{content:"⚠";display:grid;place-items:center;width:27px;height:27px;margin-left:auto;border:1px solid #ff8c8c;border-radius:8px;color:#ffd1d1;background:rgba(238,119,119,.16);font:900 17px/1 system-ui;animation:channelAlertPulse 1.8s ease-in-out infinite}
+#sat-game .status-console.is-error,#sat-game #frequencyFeedback.is-error,#sat-game #codeFeedback.is-error{border-color:rgba(238,119,119,.7)!important;color:#ffb1b1!important;background:linear-gradient(90deg,rgba(220,80,80,.13),rgba(220,80,80,.035))}
+#sat-game .status-console.is-error .status-dot{background:#ee7777;box-shadow:0 0 0 4px rgba(238,119,119,.12)}
+#sat-game .validation-action:disabled{opacity:1!important;border:1px dashed rgba(171,196,204,.52)!important;background:#13212a!important;color:#9eb5bc!important;box-shadow:none!important}
+#sat-game .tutorial-gate .tutorial-hub-header h2{font-size:clamp(26px,3vw,36px);line-height:1.12}
+#sat-game .tutorial-gate .tutorial-hub-header p{color:#b7ced5;font-size:14px;line-height:1.55}
+#sat-game #tutorialGate1 .tutorial-hub-header h2{font-size:clamp(26px,3vw,36px);line-height:1.12;letter-spacing:-.02em}
+#sat-game #tutorialGate1 .tutorial-stepper{grid-template-columns:repeat(3,minmax(0,1fr))}
+#sat-game #tutorialGate2 .tutorial-stepper{grid-template-columns:repeat(2,minmax(0,1fr))}
+#sat-game #tutorialGate1 .tutorial-step{min-height:240px}
+#sat-game #tutorialGate1 .tutorial-step>p{font-size:15px;line-height:1.6}
+#sat-game .tutorial-stepper small{font-size:10px}
+#sat-game .tutorial-gate-nav .tutorial-counter{font-size:11px}
+#sat-game .completion-card h2{font-size:clamp(2.2rem,4.3vw,4.35rem);line-height:.98;letter-spacing:-.045em}
+#sat-game .completion-status-grid span{color:#9eb9b4;font-size:10px}
+#sat-game .completion-note{color:#a8c1bc;font-size:13px}
+#sat-game .quarantine-heading{display:flex;align-items:center;gap:10px}
+#sat-game .quarantine-list:not(.is-empty){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:0;border:0;background:transparent}
+#sat-game .quarantine-list.is-empty{display:flex;align-items:center;justify-content:center;border:1px dashed rgba(220,90,90,.42);background:rgba(220,90,90,.035)}
+#sat-game .quarantine-satellite{width:100%;min-height:112px!important;padding:12px 12px 30px!important;border-color:color-mix(in srgb,var(--sat-color) 62%,var(--viz-border))!important;background:linear-gradient(135deg,var(--sat-soft),rgba(255,255,255,.014))!important;text-align:left}
+#sat-game .quarantine-satellite:hover,#sat-game .quarantine-satellite.selected{border-color:var(--sat-color)!important;background:var(--sat-soft)!important}
+#sat-game .quarantine-satellite::before{content:"↕ MOVER DA LIXEIRA";display:block!important;color:var(--sat-color);font-size:9px;font-weight:800;opacity:.9}
+#sat-game .quarantine-satellite.has-error-card{border-color:#ee7777!important;box-shadow:0 0 0 3px rgba(238,119,119,.12)}
+#sat-game .quarantine-satellite.has-error-card .sat-card-name::after{content:"  ⚠";color:#ff9b9b;font-family:system-ui;font-size:15px}
+#sat-game .satellite-card.is-quarantined-source{display:none!important}
+#sat-game .wave-screen__legend{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:14px;min-height:54px;padding:8px 10px 8px 13px}
+#sat-game .wave-legend-items{display:flex;flex-wrap:wrap;align-items:center;gap:14px;min-width:0}
+#sat-game .wave-lock-zone{position:static;left:auto;top:auto;transform:none;justify-self:center;padding:7px 11px;border:1px solid rgba(190,150,255,.46);border-radius:9px;color:#e1ccff;background:rgba(180,132,255,.12);box-shadow:0 0 0 3px rgba(180,132,255,.04);opacity:1;white-space:nowrap;font:800 10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.09em}
+#sat-game .wave-reset-inline{justify-self:end;min-width:184px;min-height:48px;padding:11px 17px!important;border-color:rgba(255,181,87,.82)!important;color:#ffd08a;background:rgba(255,181,87,.14)!important;box-shadow:0 0 0 3px rgba(255,181,87,.06),0 8px 22px rgba(90,55,10,.16);font-family:inherit;font-size:14px;font-weight:800;line-height:1.2;letter-spacing:.045em;white-space:nowrap}
+#sat-game .wave-reset-inline:hover{border-color:rgb(255,196,110)!important;color:#ffe0aa;background:rgba(255,181,87,.23)!important;box-shadow:0 0 0 4px rgba(255,181,87,.09),0 10px 26px rgba(90,55,10,.2)}
+#sat-game .wave-actions{justify-content:flex-end}
+#sat-game .wave-actions #waveValidateBtn{margin-left:auto}
+#sat-game .wave-control-title{font-size:13px;font-weight:800}
+#sat-game .wave-controls label strong{font-size:18px}
+#sat-game .wave-control-hint{min-height:32px;font-size:11px;font-weight:700;letter-spacing:.045em;text-align:center;line-height:1.25}
+
+/* Refinamentos de leitura e foco por etapa */
+#sat-game .mission-brief{max-width:680px;color:#c7dbe1;font-size:15px;line-height:1.55}
+#sat-game .mission-brief strong{color:var(--viz-accent);font-weight:800}
+#sat-game .hud-stat small{display:block;margin-top:4px;color:#9eb7bf;font-size:10px;line-height:1.25}
+#sat-game #networkStatus{background:linear-gradient(135deg,rgba(94,220,255,.08),rgba(255,255,255,.018))}
+
+#sat-game .first-challenge-board{grid-template-columns:minmax(390px,38%) minmax(0,1fr)}
+#sat-game .signal-card-list{gap:12px}
+#sat-game .signal-column .satellite-card{min-height:132px;padding:14px!important}
+#sat-game .sat-card-name{margin-bottom:12px;font-size:15px}
+#sat-game .sat-card-label,#sat-game .channel-requirement span{font-size:11px}
+#sat-game .sat-card-frequency-value,#sat-game .placed-satellite .sat-card-frequency-value,#sat-game .quarantine-satellite .sat-card-frequency-value{font-size:17px}
+#sat-game .signal-sequence{display:flex!important;align-items:center;justify-content:flex-start;gap:6px;max-width:100%;margin-top:6px!important;overflow:hidden;white-space:nowrap;font-size:17px!important;line-height:1.35;letter-spacing:0!important;word-spacing:0}
+#sat-game .signal-sequence>span{display:inline-grid;place-items:center;min-width:10px;flex:0 0 auto;color:inherit;font:inherit;line-height:1;letter-spacing:0}
+#sat-game .placed-satellite,#sat-game .quarantine-satellite{min-height:132px!important;padding:14px 14px 30px!important}
+#sat-game .channel-requirement{padding:12px 13px}
+#sat-game .channel-requirement>span{color:#c7dbe1;font-weight:900}
+#sat-game .channel-frequency strong{font-size:17px;line-height:1.4}
+
+#sat-game .tutorial-discard-reference{position:absolute;left:12px;right:12px;top:36px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:10px 12px;border:1px solid rgba(94,220,255,.42);border-radius:9px;background:rgba(94,220,255,.065)}
+#sat-game .tutorial-discard-reference span{color:var(--viz-muted);font:800 9px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.07em}
+#sat-game .tutorial-discard-reference strong{overflow:hidden;color:var(--viz-accent);font:800 13px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.11em;white-space:nowrap;text-overflow:clip}
+#sat-game .tutorial-discard-reference small{color:#c7dbe1;font:800 10px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}
+#sat-game #tutorialGate1 .tutorial-discard-step{min-height:294px}
+#sat-game #tutorialGate1 .tutorial-discard-scene{height:244px}
+#sat-game #tutorialGate1 .tutorial-discard-scene .tutorial-discard-reference{top:38px;min-height:54px}
+#sat-game #tutorialGate1 .tutorial-discard-scene .tutorial-drag-pack{top:142px}
+#sat-game #tutorialGate1 .tutorial-discard-scene .tutorial-mini-destination{top:134px;height:82px}
+#sat-game .tutorial-sync-demo.is-ready strong{color:#70e6a5;animation:none!important}
+#sat-game .tutorial-sync-demo.is-ready .tutorial-sync-bar{background:rgba(112,230,165,.14)}
+#sat-game .tutorial-sync-demo.is-ready .tutorial-sync-bar i{width:94%;background:#70e6a5;animation:none!important}
+#sat-game .tutorial-sync-demo.is-ready .tutorial-validate-button{opacity:1;border-color:#70e6a5;color:#052318;background:#70e6a5;box-shadow:0 0 0 3px rgba(112,230,165,.09);animation:none!important}
+#sat-game .tutorial-sync-demo.is-ready .tutorial-validate-cursor{opacity:1;transform:rotate(-14deg);animation:none!important}
+
+#sat-game .tutorial-gate.is-complete{padding:11px 16px}
+#sat-game .tutorial-gate.is-complete .tutorial-complete-banner{justify-content:flex-start;min-height:48px;text-align:left}
+#sat-game .tutorial-gate.is-complete .tutorial-complete-banner b{width:34px;height:34px;font-size:16px}
+#sat-game .challenge-one-footer,#sat-game .wave-footer{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px;margin-top:16px}
+#sat-game .challenge-one-footer #feedback,#sat-game .wave-footer #frequencyFeedback{min-height:48px;margin:0!important;padding:10px 13px}
+#sat-game .challenge-one-footer .challenge-one-actions,#sat-game .wave-footer .wave-actions{margin:0!important}
+#sat-game .challenge-one-footer button,#sat-game .wave-footer button{min-height:48px}
+
+/* Modais de feedback ampliados sem alterar suas mensagens */
+#sat-game .validation-box,#sat-game .result-card{width:min(560px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;padding:clamp(28px,4vw,38px);border-radius:24px}
+#sat-game .result-icon{width:78px;height:78px;margin-bottom:20px;border-width:2px;font-size:38px}
+#sat-game .result-card .mono-label,#sat-game .validation-box .mono-label{font-size:14px;line-height:1.5}
+#sat-game .result-card #resultTitle{font-size:28px;line-height:1.2}
+#sat-game .result-card #resultMessage{font-size:17px;line-height:1.6}
+#sat-game .result-card #resultClose{min-height:56px;font-size:16px;font-weight:800}
+#sat-game .validation-spinner{width:58px;height:58px;margin-bottom:20px;border-width:4px}
+#sat-game .validation-box #validationTitle{font-size:24px;line-height:1.25}
+#sat-game .validation-box #validationText,#sat-game .validation-box #validationPercent{font-size:16px;line-height:1.5}
+#sat-game .validation-track{height:12px}
+@keyframes channelAlertPulse{50%{filter:brightness(1.2);box-shadow:0 0 0 5px rgba(238,119,119,.06)}}
+@media(max-width:1050px){#sat-game .first-challenge-board{grid-template-columns:1fr}#sat-game .signal-column{position:static}}
+@media(max-width:640px){
+  #sat-game .interaction-help{align-items:flex-start;flex-direction:column;gap:5px}
+  #sat-game #tutorialGate1 .tutorial-stepper,#sat-game #tutorialGate2 .tutorial-stepper{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #sat-game .satellite-card::before{font-size:9px}
+  #sat-game .quarantine-list:not(.is-empty){grid-template-columns:1fr}
+  #sat-game .challenge-one-footer,#sat-game .wave-footer{grid-template-columns:1fr}
+  #sat-game .challenge-one-footer .challenge-one-actions,#sat-game .wave-footer .wave-actions{justify-content:stretch}
+  #sat-game .challenge-one-footer button,#sat-game .wave-footer button{width:100%}
+  #sat-game .tutorial-discard-reference{grid-template-columns:1fr;gap:4px;padding:8px 10px}
+  #sat-game .tutorial-discard-reference strong{font-size:11px}
+  #sat-game .wave-screen__legend{grid-template-columns:1fr auto;gap:8px}
+  #sat-game .wave-lock-zone{grid-column:1/-1;grid-row:1}
+  #sat-game .wave-legend-items{grid-column:1;grid-row:2}
+  #sat-game .wave-reset-inline{grid-column:2;grid-row:2;min-width:0}
+}
+@media(max-width:520px){#sat-game .signal-card-list{grid-template-columns:1fr}#sat-game .signal-sequence{font-size:16px!important;gap:5px}}
+
+</style>
+</head>
+<body>
+<canvas id="challengeCodeCanvas" class="challenge-code-canvas" aria-hidden="true"></canvas>
+<main>
+<div id="sat-game" class="protocol-not-started w-full space-y-6">
+  <section id="protocolStart" class="protocol-start-screen">
+    <div class="protocol-start-card">
+      <div class="protocol-start-radar" aria-hidden="true">
+        <span class="start-orbit start-orbit-a"></span>
+        <span class="start-orbit start-orbit-b"></span>
+        <span class="start-core">NA</span>
+        <span class="start-sweep"></span>
+      </div>
+      <p class="mono-label">NEXUS // PROTOCOLO DE EMERGÊNCIA</p>
+      <h1>REDE DE SATÉLITES COMPROMETIDA</h1>
+      <p class="protocol-start-text">A ECLIPSE interferiu nos sinais de Nova Aurora. Identifique os satélites corretos, isole as interferências e restaure a comunicação.</p>
+      <div class="protocol-start-data">
+        <div><span>STATUS</span><strong>CRÍTICO</strong></div>
+        <div><span>SINAIS</span><strong>8 DETECTADOS</strong></div>
+        <div><span>OBJETIVO</span><strong>RESTAURAR REDE</strong></div>
+      </div>
+      <button id="startProtocolBtn" type="button" class="protocol-start-button">INICIAR PROTOCOLO</button>
+    </div>
+  </section>
+  <section class="command-deck rounded-3xl border p-5 sm:p-6">
+    <div class="command-grid">
+      <div class="space-y-4">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="status-pill"><span class="live-dot"></span>NEXUS ONLINE PARCIAL</span>
+          <span class="status-pill danger">ECLIPSE DETECTADA</span>
+        </div>
+        <div>
+          <p class="mono-label">NOVA AURORA // SINAL DE SATÉLITE</p>
+          <h1 class="mt-2 text-2xl font-medium tracking-wide sm:text-3xl">PROTOCOLO: RECUPERAR SINAIS</h1>
+          <p id="missionBrief" class="mission-brief mt-3"><strong>ETAPA ATUAL — TRIAGEM:</strong> compare padrão e frequência, conecte os quatro sinais legítimos e descarte somente as interferências.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div id="networkStatus" class="hud-stat" aria-label="37% da comunicação orbital restaurada"><span>REDE RESTAURADA</span><strong id="networkPercent">37%</strong><small>da comunicação orbital</small></div>
+          <div class="hud-stat"><span>SATÉLITES</span><strong id="progressTop">0/4</strong></div>
+          <div class="hud-stat"><span>AMEAÇA</span><strong>ALTA</strong></div>
+          <div class="hud-stat"><span>PROTOCOLO</span><strong>COM-06</strong></div>
+        </div>
+      </div>
+      <div class="orbital-display" aria-label="Radar orbital estilizado">
+        <div class="planet-core"><span>NA</span></div>
+        <span class="orbit-ring ring-a"></span>
+        <span class="orbit-ring ring-b"></span>
+        <span class="orbit-ring ring-c"></span>
+        <span class="sat-dot sat-a">01</span>
+        <span class="sat-dot sat-b">02</span>
+        <span class="sat-dot sat-c">03</span>
+        <span class="sat-dot sat-d">04</span>
+        <span class="radar-sweep"></span>
+      </div>
+    </div>
+  </section>
+  <section class="mission-flow rounded-2xl border p-4" aria-label="Progresso da missão: três etapas" style="border-color:var(--viz-border);background:var(--viz-panel)">
+    <div class="flow-step is-active" data-flow="1"><span>1</span><div><strong>TRIAR</strong><small>Identifique os 4 sinais</small></div></div>
+    <div class="flow-line"></div>
+    <div class="flow-step" data-flow="2"><span>2</span><div><strong>SINCRONIZAR</strong><small>Alinhe 3 ondas</small></div></div>
+    <div class="flow-line"></div>
+    <div class="flow-step" data-flow="3"><span>3</span><div><strong>REINICIAR</strong><small>Digite o código final</small></div></div>
+  </section>
+
+  <section id="tutorialGate1" class="tutorial-hub tutorial-gate tutorial-gate-one" aria-labelledby="tutorialTitle1">
+    <div class="tutorial-hub-header">
+      <div>
+        <span class="mono-label">GUIA RÁPIDO // ETAPA 1 DE 3</span>
+        <h2 id="tutorialTitle1">Como fazer a triagem</h2>
+        <p>Veja três demonstrações curtas. Depois, use a mesma regra no quadro: compare o padrão, confira a frequência e escolha o destino.</p>
+      </div>
+      <span class="viz-badge">ETAPA BLOQUEADA</span>
+    </div>
+
+    <div class="tutorial-stepper" aria-label="Progresso do guia da etapa 1">
+      <span data-tutorial-indicator><b>1</b><small>COMPARE</small></span>
+      <span data-tutorial-indicator><b>2</b><small>CONECTE</small></span>
+      <span data-tutorial-indicator><b>3</b><small>DESCARTE</small></span>
+    </div>
+    <div class="tutorial-steps">
+        <article class="tutorial-step is-active">
+          <div class="tutorial-step-heading"><b>1</b><strong>COMPARE PADRÃO E FREQUÊNCIA</strong></div>
+          <p>Primeiro encontre um cartão com o <strong>mesmo padrão</strong> do canal. Depois confirme se a frequência do cartão está <strong>dentro da faixa de frequência aceita</strong>.</p>
+          <div class="tutorial-scene">
+            <span class="tutorial-scene-label">A LINHA LÊ O CANAL DE CIMA PARA BAIXO</span>
+            <div class="tutorial-channel-card"><span>CANAL A · PADRÃO</span><strong>● ■ ▲ ■ ● ▲ ■ ●</strong><span style="margin-top:10px">FREQUÊNCIA ACEITA</span><strong>DE 131,1 MHz ATÉ 131,3 MHz</strong></div>
+            <i class="tutorial-scan-line" aria-hidden="true"></i>
+          </div>
+        </article>
+        <article class="tutorial-step">
+          <div class="tutorial-step-heading"><b>2</b><strong>CONECTE O CARTÃO CORRETO</strong></div>
+          <p>Quando padrão e frequência estiverem corretos, <strong>arraste o cartão</strong> até o canal e solte. Você também pode selecionar o cartão e depois selecionar o canal.</p>
+          <div class="tutorial-scene">
+            <span class="tutorial-scene-label">O CARTÃO CORRETO SEGUE O MOUSE ATÉ O CANAL A</span>
+            <div class="tutorial-drag-pack"><span class="tutorial-mini-card"><small>PADRÃO:</small>● ■ ▲ ■ ● ▲ ■ ●<small>FREQUÊNCIA:</small>131,2 MHz</span><span class="tutorial-cursor-icon" aria-hidden="true">↖</span></div>
+            <span class="tutorial-mini-destination">CANAL A<br>DE 131,1<br>ATÉ 131,3 MHz</span>
+          </div>
+        </article>
+        <article class="tutorial-step tutorial-discard-step">
+          <div class="tutorial-step-heading"><b>3</b><strong>DESCARTE A INTERFERÊNCIA</strong></div>
+          <p><strong>Descarte apenas os cartões que não correspondem a nenhum canal.</strong> Compare padrão e frequência antes de levá-los à lixeira. Se quiser recomeçar, use <strong>LIMPAR CONEXÕES</strong>.</p>
+          <div class="tutorial-scene tutorial-discard-scene">
+            <span class="tutorial-scene-label">COMPARE COM A REFERÊNCIA ANTES DE DESCARTAR</span>
+            <div class="tutorial-discard-reference"><span>CANAL A · REFERÊNCIA</span><strong>● ■ ▲ ■ ● ▲ ■ ●</strong><small>131,1–131,3 MHz</small></div>
+            <div class="tutorial-drag-pack"><span class="tutorial-mini-card" style="border-color:rgba(225,120,120,.62);color:rgb(225,120,120);background:rgba(220,90,90,.09)"><small>PADRÃO:</small>● ■ ▲ ■ ● ▲ ■ ●<small>FREQUÊNCIA:</small>130,9 MHz</span><span class="tutorial-cursor-icon" aria-hidden="true">↖</span></div>
+            <span class="tutorial-mini-destination is-trash">LIXEIRA</span>
+          </div>
+        </article>
+    </div>
+    <div class="tutorial-gate-nav">
+      <button type="button" class="tutorial-nav-button" data-tutorial-back hidden>← PASSO ANTERIOR</button>
+      <span class="tutorial-counter" data-tutorial-counter aria-live="polite">PASSO 1 DE 3</span>
+      <button type="button" class="tutorial-nav-button" data-tutorial-next>PRÓXIMO PASSO →</button>
+    </div>
+    <div class="tutorial-complete-banner"><b>✓</b><span><strong>GUIA CONCLUÍDO</strong><small>A etapa de triagem está liberada.</small></span></div>
+  </section>
+
+  <section id="challengeOne" class="challenge-zone challenge-one first-challenge tutorial-locked" inert aria-disabled="true">
+    <div class="challenge-lock-overlay"><div class="challenge-lock-card"><b>🔒</b><strong>ETAPA 1 BLOQUEADA</strong><span>Conclua os três passos do guia acima para liberar os cartões.</span></div></div>
+    <div class="first-challenge-header">
+      <div class="flex items-center gap-2">
+        <span class="step-chip">01</span>
+        <h3 class="challenge-title font-medium">Triagem dos sinais de satélite</h3>
+      </div>
+      <p class="challenge-brief"><strong>Regra:</strong> arraste para o canal somente o cartão com o mesmo padrão e frequência dentro da faixa. Envie todos os demais para a lixeira.</p>
+      <div class="interaction-help"><b>COMO INTERAGIR</b><span>Arraste um cartão até o destino ou selecione o cartão e depois selecione o canal ou a lixeira.</span></div>
+    </div>
+
+    <div class="first-challenge-board">
+      <aside class="signal-column" aria-label="Área dos cartões">
+        <div class="board-title">
+          <span>CARTÕES DISPONÍVEIS</span>
+        </div>
+
+        <div id="satellites" class="signal-card-list"></div>
+      </aside>
+
+      <div class="destination-column">
+        <section class="channel-area" aria-label="Área dos canais">
+          <div class="board-title board-title-row">
+            <div>
+              <span>ÁREA DOS CANAIS</span>
+            </div>
+
+            <button id="clearBtn" type="button"
+              class="secondary-action rounded-xl border px-4 py-2 text-sm"
+              style="border-color:var(--viz-border)">
+              ↺ LIMPAR CONEXÕES
+            </button>
+          </div>
+
+          <div id="channels" class="channel-grid"></div>
+        </section>
+
+        <section id="quarantineDrop"
+          class="quarantine-panel quarantine-area"
+          tabindex="0"
+          aria-label="Lixeira para sinais falsos">
+
+          <div class="board-title quarantine-heading">
+            <span>LIXEIRA</span>
+            <small>Descarte as interferências</small>
+          </div>
+
+          <div class="quarantine-actions">
+            <span class="quarantine-drop-label">↓ SOLTE A INTERFERÊNCIA AQUI ↓</span>
+            <span id="quarantineCount">0/4 na lixeira</span>
+          </div>
+
+          <div id="quarantineList" class="quarantine-list is-empty">
+            Lixeira vazia.
+          </div>
+        </section>
+      </div>
+    </div>
+    <div class="challenge-one-footer">
+      <div id="feedback" aria-live="polite" class="status-console min-h-10 rounded-xl border p-4 text-sm" style="border-color:var(--viz-border)"><span class="status-dot"></span><span>Compare padrão e frequência para definir o destino de cada cartão.</span></div>
+      <div class="challenge-one-actions flex flex-wrap gap-3">
+        <button id="verifyBtn" type="button" disabled class="primary-action validation-action rounded-xl px-5 py-3 font-medium">VALIDAR TRIAGEM — COMPLETE O QUADRO</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="tutorialGate2" class="tutorial-hub tutorial-gate tutorial-gate-two hidden" aria-labelledby="tutorialTitle2">
+    <div class="tutorial-hub-header">
+      <div>
+        <span class="mono-label">GUIA RÁPIDO // ETAPA 2 DE 3</span>
+        <h2 id="tutorialTitle2">Como sincronizar as ondas</h2>
+        <p>Veja duas demonstrações: primeiro ajuste as curvas; depois valide quando a sincronia atingir 90%.</p>
+      </div>
+      <span class="viz-badge">ETAPA BLOQUEADA</span>
+    </div>
+    <div class="tutorial-stepper" aria-label="Progresso do guia da etapa 2">
+      <span data-tutorial-indicator><b>1</b><small>AJUSTE AS CURVAS</small></span>
+      <span data-tutorial-indicator><b>2</b><small>VALIDE EM 90%</small></span>
+    </div>
+    <div class="tutorial-steps">
+      <article class="tutorial-step is-active">
+        <div class="tutorial-step-heading"><b>1</b><strong>AJUSTE AS TRÊS CARACTERÍSTICAS</strong></div>
+        <p>A linha tracejada é a <strong>referência NEXUS</strong> e a roxa é o seu sinal. Ajuste <strong>FREQUÊNCIA</strong> para igualar a quantidade de ondas, <strong>AMPLITUDE</strong> para igualar a altura e <strong>FASE</strong> para alinhar picos e vales.</p>
+        <div class="tutorial-scene tutorial-wave-shape">
+          <span class="tutorial-scene-label">TRACEJADA = REFERÊNCIA · ROXA = SEU SINAL</span>
+          <svg class="tutorial-wave-svg" viewBox="0 0 220 70" aria-hidden="true"><path class="tutorial-wave-target" d="M0 35 C10 8 20 8 30 35 S50 62 60 35 S80 8 90 35 S110 62 120 35 S140 8 150 35 S170 62 180 35 S200 8 210 35 S220 62 230 35"/><path class="tutorial-wave-player" d="M0 35 C10 8 20 8 30 35 S50 62 60 35 S80 8 90 35 S110 62 120 35 S140 8 150 35 S170 62 180 35 S200 8 210 35 S220 62 230 35"/></svg>
+          <span class="tutorial-double-slider" aria-hidden="true"><i></i><i></i></span>
+        </div>
+      </article>
+      <article class="tutorial-step">
+        <div class="tutorial-step-heading"><b>2</b><strong>ESPERE O VERDE E VALIDE</strong></div>
+        <p>Observe o indicador de <strong>SINCRONIA</strong>. O botão permanece indisponível até o valor chegar a 90% e o painel ficar verde.</p>
+        <div class="tutorial-scene">
+          <span class="tutorial-scene-label">LIBERA EM 90%</span>
+          <div class="tutorial-sync-demo is-ready"><strong>94%</strong><div class="tutorial-sync-bar"><i></i></div><span class="tutorial-validate-button">VALIDAR ONDA</span><span class="tutorial-cursor-icon tutorial-validate-cursor" aria-hidden="true">↖</span></div>
+        </div>
+      </article>
+    </div>
+    <div class="tutorial-gate-nav">
+      <button type="button" class="tutorial-nav-button" data-tutorial-back hidden>← PASSO ANTERIOR</button>
+      <span class="tutorial-counter" data-tutorial-counter aria-live="polite">PASSO 1 DE 2</span>
+      <button type="button" class="tutorial-nav-button" data-tutorial-next>PRÓXIMO PASSO →</button>
+    </div>
+    <div class="tutorial-complete-banner"><b>✓</b><span><strong>GUIA CONCLUÍDO</strong><small>O osciloscópio e os controles estão liberados.</small></span></div>
+  </section>
+
+  <section id="calibrationStage" class="challenge-zone challenge-two tutorial-locked hidden rounded-2xl border p-5" inert aria-disabled="true" style="border-color:var(--viz-border);background:var(--viz-panel)">
+    <div class="challenge-lock-overlay"><div class="challenge-lock-card"><b>🔒</b><strong>ETAPA 2 BLOQUEADA</strong><span>Conclua os dois passos do guia acima para liberar o osciloscópio.</span></div></div>
+    <div class="viz-badge">ETAPA 2 DE 3 // SINCRONIZAÇÃO DE ONDAS</div>
+    <div class="mt-3 flex items-center gap-2">
+      <span class="step-chip">02</span>
+      <h3 class="challenge-title font-medium">Sincronizar a onda do satélite</h3>
+    </div>
+    <div class="challenge-instructions">
+      <div class="challenge-instructions-title">INSTRUÇÕES DO DESAFIO</div>
+      <p>A ECLIPSE distorceu três sinais. Ajuste <strong>FREQUÊNCIA, AMPLITUDE e FASE</strong>
+      observando as duas ondas até atingir <strong>90% ou mais de sincronia</strong>. Depois clique em <strong>VALIDAR ONDA</strong>.</p>
+    </div>
+    <div class="wave-status mt-4">
+      <div><span>SATÉLITE</span><strong id="waveSatellite">ATLAS</strong></div>
+      <div><span>RODADA</span><strong id="waveRound">1/3</strong></div>
+      <div id="waveSyncCard" class="wave-sync-card" role="progressbar" aria-label="Sincronia da onda" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="wave-sync-header"><span>SINCRONIA DA ONDA</span><em id="waveAccuracyState">CONTINUE AJUSTANDO</em></div>
+        <strong id="waveAccuracy">0%</strong>
+        <div class="wave-sync-track" aria-hidden="true"><i id="waveAccuracyFill"></i></div>
+        <small>VALIDAÇÃO DISPONÍVEL A PARTIR DE 90%</small>
+      </div>
+    </div>
+    <div class="wave-screen mt-4">
+      <div class="wave-screen__legend">
+        <div class="wave-legend-items"><span><i class="target-line"></i> Referência NEXUS</span><span><i class="player-line"></i> Seu sinal</span></div>
+        <div class="wave-lock-zone">ALINHE A ONDA ROXA À LINHA TRACEJADA</div>
+        <button id="waveResetBtn" type="button" class="secondary-action wave-reset-inline rounded-xl border">↺ LIMPAR AJUSTES</button>
+      </div>
+      <canvas id="waveCanvas" width="900" height="280" aria-label="Comparação entre a onda de referência e a onda ajustada pelo jogador"></canvas>
+    </div>
+    <div class="wave-controls mt-4">
+      <label class="wave-control wave-control-frequency"><span class="wave-control-title">FREQUÊNCIA <strong id="freqValue">3.0</strong></span><span class="wave-control-hint">QUANTIDADE DE ONDAS</span><input id="freqSlider" type="range" min="1" max="8" step="0.1" value="3"></label>
+      <label class="wave-control wave-control-amplitude"><span class="wave-control-title">AMPLITUDE <strong id="ampValue">1.0</strong></span><span class="wave-control-hint">ALTURA DA ONDA</span><input id="ampSlider" type="range" min="0.4" max="1.6" step="0.05" value="1"></label>
+      <label class="wave-control wave-control-phase"><span class="wave-control-title">FASE <strong id="phaseValue">0°</strong></span><span class="wave-control-hint">POSIÇÃO DOS PICOS E VALES</span><input id="phaseSlider" type="range" min="-180" max="180" step="5" value="0"></label>
+    </div>
+    <div class="wave-footer">
+      <div id="frequencyFeedback" aria-live="polite" class="mt-3 text-sm" style="color:var(--viz-muted)">Ajuste os controles observando as duas ondas.</div>
+      <div class="wave-actions flex flex-wrap gap-3 mt-4">
+        <button id="waveValidateBtn" type="button" disabled class="primary-action validation-action rounded-xl px-5 py-3 font-medium">VALIDAR ONDA — ATINJA 90%</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="finalStage" class="challenge-zone challenge-three hidden rounded-2xl border p-5" style="border-color:var(--viz-accent);background:var(--viz-accent-bg-subtle)">
+    <div class="viz-badge">ETAPA 3 DE 3 // CÓDIGO FINAL</div>
+    <div class="mt-3 flex items-center gap-2">
+      <span class="step-chip">03</span>
+      <h3 class="challenge-title font-medium">Reinicialização orbital</h3>
+    </div>
+    <div class="challenge-instructions">
+      <div class="challenge-instructions-title">INSTRUÇÕES DO DESAFIO FINAL</div>
+      <p>Os números dos satélites vão passar <strong>muito rápido por alguns segundos</strong>. Aguarde a sequência parar e então digite o código na ordem
+      <strong>A → B → C → D</strong>. O campo será liberado automaticamente quando os números estiverem estáveis.</p>
+    </div>
+    <div id="keySequenceStatus" class="key-sequence-status" aria-live="polite">AGUARDANDO DECODIFICAÇÃO DA SEQUÊNCIA...</div>
+    <div id="keys" class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4"></div>
+    <div class="final-code-entry">
+      <label for="codeInput" class="block text-sm font-medium">Código de acesso — 4 dígitos</label>
+      <input id="codeInput" inputmode="numeric" maxlength="4" autocomplete="off" aria-describedby="keySequenceStatus codeFeedback" class="mt-2 w-full rounded-xl border px-3 py-3 text-center text-xl tracking-widest" style="background:var(--viz-card);border-color:var(--viz-border)" placeholder="— — — —">
+      <button id="codeBtn" type="button" disabled class="primary-action validation-action mt-3 w-full rounded-xl px-4 py-3 font-medium">DIGITE OS 4 DÍGITOS</button>
+    </div>
+    <div id="codeFeedback" aria-live="polite" class="mt-4 text-sm"></div>
+  </section>
+
+  <section id="success" class="completion-screen hidden" role="dialog" aria-modal="true" aria-labelledby="successTitle">
+    <canvas id="successCodeCanvas" class="success-code-canvas" aria-hidden="true"></canvas>
+    <div class="completion-layout">
+      <div class="success-radar-console" aria-hidden="true">
+        <div class="success-radar">
+          <span class="success-radar-ring ring-1"></span>
+          <span class="success-radar-ring ring-2"></span>
+          <span class="success-radar-ring ring-3"></span>
+          <span class="success-radar-sweep"></span>
+          <span class="success-radar-core">NEXUS</span>
+          <span class="success-radar-satellite sat-1">🛰</span>
+          <span class="success-radar-satellite sat-2">🛰</span>
+          <span class="success-radar-satellite sat-3">🛰</span>
+          <span class="success-radar-satellite sat-4">🛰</span>
+          <span class="success-radar-ping ping-1"></span>
+          <span class="success-radar-ping ping-2"></span>
+        </div>
+        <div class="success-radar-caption">4 SATÉLITES LOCALIZADOS E CONECTADOS</div>
+      </div>
+
+      <div class="completion-card">
+        <p class="mono-label">NEXUS // PROTOCOLO CONCLUÍDO // LINK RESTAURADO</p>
+        <h2 id="successTitle">Sinais de Satélites de Nova Aurora Restaurada</h2>
+        <p class="completion-lead">Os canais foram validados, as quatro interferências da ECLIPSE foram descartadas e a rede orbital voltou a transmitir para Nova Aurora.</p>
+        <div id="successTerminalLine" class="success-terminal-line" aria-hidden="true">INICIALIZANDO TELEMETRIA ORBITAL...</div>
+        <div class="completion-status-grid">
+          <div><span>SAT-01</span><strong>ONLINE</strong></div>
+          <div><span>SAT-02</span><strong>ONLINE</strong></div>
+          <div><span>SAT-03</span><strong>ONLINE</strong></div>
+          <div><span>SAT-04</span><strong>ONLINE</strong></div>
+        </div>
+        <div class="completion-main-status">COMUNICAÇÃO DE NOVA AURORA: 100% ONLINE</div>
+        <p class="completion-note">Todas as frequências estão estáveis. Nenhuma interferência foi detectada.</p>
+        <button id="restartProtocolBtn" type="button" class="protocol-start-button">INICIAR NOVA MISSÃO</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="validationOverlay" class="validation-overlay hidden" aria-live="polite" aria-label="Validação em andamento">
+    <div class="validation-box">
+      <div class="validation-spinner" aria-hidden="true"></div>
+      <div class="mono-label">NEXUS // VERIFICAÇÃO DE INTEGRIDADE</div>
+      <h3 id="validationTitle" class="mt-2 font-medium">Validando códigos dos satélites...</h3>
+      <p id="validationText" class="mt-2 text-sm" style="color:var(--viz-muted)">Analisando pacotes orbitais.</p>
+      <div class="validation-track mt-4"><span id="validationFill"></span></div>
+      <div id="validationPercent" class="mt-2 text-right text-sm">0%</div>
+    </div>
+  </div>
+
+  <div id="resultModal" class="result-modal hidden" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+    <div class="result-card">
+      <div id="resultIcon" class="result-icon" aria-hidden="true">✓</div>
+      <p class="mono-label">NEXUS // RESPOSTA DO SISTEMA</p>
+      <h2 id="resultTitle" class="mt-2 text-xl font-medium">Código aceito</h2>
+      <p id="resultMessage" class="mt-2 text-sm" style="color:var(--viz-muted)"></p>
+      <button id="resultClose" type="button" class="primary-action mt-5 w-full rounded-xl px-4 py-3 font-medium" style="background:var(--viz-accent);color:var(--viz-accent-text)">CONTINUAR</button>
+    </div>
+  </div>
+</div>
+</main>
+<script>
+(() => {
+  "use strict";
+
+  const sats = [
+    {id:'atlas', name:'ATLAS', code:'▲ ● ■ ● ▲ ■ ● ▲', freq:131.4, key:'7'},
+    {id:'pulse', name:'PULSE', code:'■ ▲ ● ▲ ■ ● ▲ ●', freq:130.7, key:'3'},
+    {id:'vega', name:'VEGA', code:'● ■ ▲ ■ ● ▲ ■ ●', freq:131.2, key:'8'},
+    {id:'orion', name:'ORION', code:'▲ ■ ● ● ▲ ■ ▲ ●', freq:130.9, key:'1'},
+    {id:'nyx', name:'NYX', code:'▲ ● ■ ● ▲ ■ ● ▲', freq:130.7, decoy:true},
+    {id:'echo', name:'ECHO', code:'■ ▲ ● ▲ ■ ● ▲ ●', freq:131.2, decoy:true},
+    {id:'rift', name:'RIFT', code:'● ■ ▲ ■ ● ▲ ■ ●', freq:130.9, decoy:true},
+    {id:'nova', name:'NOVA', code:'▲ ■ ● ● ▲ ■ ▲ ●', freq:131.4, decoy:true}
+  ];
+
+  const channels = [
+    {id:'A', pattern:'● ■ ▲ ■ ● ▲ ■ ●', frequency:'DE 131,1 MHz ATÉ 131,3 MHz', answer:'vega'},
+    {id:'B', pattern:'■ ▲ ● ▲ ■ ● ▲ ●', frequency:'DE 130,6 MHz ATÉ 130,8 MHz', answer:'pulse'},
+    {id:'C', pattern:'▲ ■ ● ● ▲ ■ ▲ ●', frequency:'DE 130,8 MHz ATÉ 131,0 MHz', answer:'orion'},
+    {id:'D', pattern:'▲ ● ■ ● ▲ ■ ● ▲', frequency:'DE 131,3 MHz ATÉ 131,5 MHz', answer:'atlas'}
+  ];
+
+  const waveTargets = [
+    {sat:'ATLAS', frequency:4.6, amplitude:1.20, phase:35},
+    {sat:'ORION', frequency:6.8, amplitude:0.90, phase:-80},
+    {sat:'VEGA', frequency:3.7, amplitude:1.35, phase:120}
+  ];
+
+  const assignments = {};
+  const quarantined = new Set();
+
+  let selected = null;
+  let unlocked = false;
+  let waveRoundIndex = 0;
+  let validationTimer = null;
+  let finalKeys = {};
+  let finalKeyTimer = null;
+  let finalKeyStopTimer = null;
+  let finalKeySequencePending = false;
+  let challengeAnimationFrame = null;
+  let challengeStreams = [];
+  let challengeCanvasWidth = 0;
+  let challengeCanvasHeight = 0;
+  let challengeLastFrame = 0;
+  let successAnimationFrame = null;
+  let successTerminalTimer = null;
+  let successStreams = [];
+  let successCanvasWidth = 0;
+  let successCanvasHeight = 0;
+  let successLastFrame = 0;
+
+  let drag = null;
+  let suppressClick = false;
+  let autoScrollFrame = null;
+
+  const $ = s => document.querySelector(s);
+  const $$ = s => [...document.querySelectorAll(s)];
+
+  const gameRoot = $('#sat-game');
+  const missionBrief = $('#missionBrief');
+  const networkStatus = $('#networkStatus');
+  const networkPercent = $('#networkPercent');
+  const tutorialGate1 = $('#tutorialGate1');
+  const tutorialGate2 = $('#tutorialGate2');
+  const challengeOne = $('#challengeOne');
+  const satWrap = $('#satellites');
+  const channelWrap = $('#channels');
+  const feedback = $('#feedback');
+  const progressTop = $('#progressTop');
+  const verifyBtn = $('#verifyBtn');
+  const challengeOneActions = $('.challenge-one-actions');
+  const calibrationStage = $('#calibrationStage');
+  const frequencyFeedback = $('#frequencyFeedback');
+  const waveCanvas = $('#waveCanvas');
+  const waveCtx = waveCanvas.getContext('2d');
+  const freqSlider = $('#freqSlider');
+  const ampSlider = $('#ampSlider');
+  const phaseSlider = $('#phaseSlider');
+  const freqValue = $('#freqValue');
+  const ampValue = $('#ampValue');
+  const phaseValue = $('#phaseValue');
+  const waveAccuracy = $('#waveAccuracy');
+  const waveAccuracyFill = $('#waveAccuracyFill');
+  const waveAccuracyState = $('#waveAccuracyState');
+  const waveSyncCard = $('#waveSyncCard');
+  const waveValidateBtn = $('#waveValidateBtn');
+  const waveSatellite = $('#waveSatellite');
+  const waveRound = $('#waveRound');
+  const finalStage = $('#finalStage');
+  const finalKeysWrap = $('#keys');
+  const keySequenceStatus = $('#keySequenceStatus');
+  const codeInput = $('#codeInput');
+  const codeBtn = $('#codeBtn');
+  const challengeCodeCanvas = $('#challengeCodeCanvas');
+  const challengeCodeCtx = challengeCodeCanvas?.getContext('2d');
+  const success = $('#success');
+  const successCodeCanvas = $('#successCodeCanvas');
+  const successCodeCtx = successCodeCanvas.getContext('2d');
+  const successTerminalLine = $('#successTerminalLine');
+  const restartProtocolBtn = $('#restartProtocolBtn');
+  const validationOverlay = $('#validationOverlay');
+  const validationTitle = $('#validationTitle');
+  const validationFill = $('#validationFill');
+  const validationPercent = $('#validationPercent');
+  const validationText = $('#validationText');
+  const resultModal = $('#resultModal');
+  const resultCard = resultModal.querySelector('.result-card');
+  const resultIcon = $('#resultIcon');
+  const resultTitle = $('#resultTitle');
+  const resultMessage = $('#resultMessage');
+  const resultClose = $('#resultClose');
+  const quarantineDrop = $('#quarantineDrop');
+  const quarantineCount = $('#quarantineCount');
+  const quarantineList = $('#quarantineList');
+
+  const missionStageCopy = {
+    1:{
+      network:'37%',
+      brief:'<strong>ETAPA ATUAL — TRIAGEM:</strong> compare padrão e frequência, conecte os quatro sinais legítimos e descarte apenas os cartões que não correspondem a nenhum canal.'
+    },
+    2:{
+      network:'62%',
+      brief:'<strong>ETAPA ATUAL — SINCRONIZAÇÃO:</strong> ajuste frequência, amplitude e fase até cada onda atingir pelo menos 90% de sincronia; depois valide.'
+    },
+    3:{
+      network:'84%',
+      brief:'<strong>ETAPA ATUAL — REINICIALIZAÇÃO:</strong> aguarde os números estabilizarem e digite o código na ordem A → B → C → D.'
+    }
+  };
+
+  function updateMissionHeader(stage){
+    const copy = missionStageCopy[stage];
+    if (!copy) return;
+    missionBrief.innerHTML = copy.brief;
+    networkPercent.textContent = copy.network;
+    networkStatus.setAttribute('aria-label',`${copy.network} da comunicação orbital restaurada`);
+  }
+
+  function setFlow(step){
+    $$('.flow-step').forEach(el=>{
+      const n = Number(el.dataset.flow);
+      el.classList.toggle('is-active', n === step);
+      el.classList.toggle('is-done', n < step);
+      if (n === step) el.setAttribute('aria-current','step');
+      else el.removeAttribute('aria-current');
+    });
+  }
+
+  function showMissionStage(stage){
+    const showOne = stage === 1;
+    const showTwo = stage === 2;
+    const showThree = stage === 3;
+
+    updateMissionHeader(stage);
+
+    tutorialGate1.classList.toggle('hidden',!showOne);
+    challengeOne.classList.toggle('hidden',!showOne);
+    challengeOneActions.classList.toggle('hidden',!showOne);
+    feedback.classList.toggle('hidden',!showOne);
+
+    tutorialGate2.classList.toggle('hidden',!showTwo);
+    calibrationStage.classList.toggle('hidden',!showTwo);
+    finalStage.classList.toggle('hidden',!showThree);
+  }
+
+  function setChallengeLocked(challenge,locked){
+    challenge.classList.toggle('tutorial-locked',locked);
+    challenge.inert = locked;
+    challenge.setAttribute('aria-disabled',locked ? 'true' : 'false');
+    if (challenge === challengeOne) updateVerifyAvailability();
+  }
+
+  function createTutorialGate(gate,challenge,challengeNumber,onStart){
+    const steps = [...gate.querySelectorAll('.tutorial-step')];
+    const indicators = [...gate.querySelectorAll('[data-tutorial-indicator]')];
+    const backButton = gate.querySelector('[data-tutorial-back]');
+    const nextButton = gate.querySelector('[data-tutorial-next]');
+    const counter = gate.querySelector('[data-tutorial-counter]');
+    let currentStep = 0;
+
+    function renderStep(){
+      steps.forEach((step,index) => {
+        const active = index === currentStep;
+        step.classList.toggle('is-active',active);
+        step.setAttribute('aria-hidden',active ? 'false' : 'true');
+      });
+
+      indicators.forEach((indicator,index) => {
+        indicator.classList.toggle('is-current',index === currentStep);
+        indicator.classList.toggle('is-done',index < currentStep);
+      });
+
+      backButton.hidden = currentStep === 0;
+      counter.textContent = `PASSO ${currentStep + 1} DE ${steps.length}`;
+      nextButton.textContent = currentStep === steps.length - 1
+        ? `INICIAR ETAPA ${challengeNumber}`
+        : 'PRÓXIMO PASSO →';
+    }
+
+    function complete(){
+      gate.classList.add('is-complete');
+      setChallengeLocked(challenge,false);
+      onStart?.();
+      requestAnimationFrame(() => challenge.scrollIntoView({behavior:'smooth',block:'start'}));
+    }
+
+    nextButton.addEventListener('click', () => {
+      if (currentStep < steps.length - 1){
+        currentStep++;
+        renderStep();
+      } else {
+        complete();
+      }
+    });
+
+    backButton.addEventListener('click', () => {
+      if (currentStep === 0) return;
+      currentStep--;
+      renderStep();
+    });
+
+    function resetGate(hidden=false){
+      currentStep = 0;
+      gate.classList.remove('is-complete');
+      gate.classList.toggle('hidden',hidden);
+      setChallengeLocked(challenge,true);
+      renderStep();
+    }
+
+    function showGate(){
+      resetGate(false);
+      requestAnimationFrame(() => gate.scrollIntoView({behavior:'smooth',block:'start'}));
+    }
+
+    resetGate(gate.classList.contains('hidden'));
+    return {reset:resetGate,show:showGate};
+  }
+
+  const tutorialOne = createTutorialGate(
+    tutorialGate1,
+    challengeOne,
+    1,
+    () => {
+      updateVerifyAvailability();
+      feedback.classList.remove('is-success','is-error');
+      feedback.innerHTML = '<span class="status-dot"></span>Compare padrão e frequência; complete os quatro canais e descarte apenas os cartões sem canal correspondente.';
+    }
+  );
+
+  const tutorialTwo = createTutorialGate(
+    tutorialGate2,
+    calibrationStage,
+    2,
+    () => {
+      startWaveChallenge();
+      frequencyFeedback.classList.remove('is-success','is-error');
+      frequencyFeedback.textContent = waveGuidance(waveScore());
+    }
+  );
+
+  function formatFrequency(value){
+    return value.toFixed(1).replace('.',',');
+  }
+
+  function signalPatternMarkup(pattern){
+    return pattern.trim().split(/\s+/).map(symbol => `<span aria-hidden="true">${symbol}</span>`).join('');
+  }
+
+  function satCard(s){
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.draggable = false;
+    el.dataset.sat = s.id;
+    el.className = `satellite-card sat-${s.id} rounded-2xl border p-4 text-left`;
+    el.style.borderColor = 'var(--viz-border)';
+    el.style.background = 'var(--viz-card)';
+    el.setAttribute('aria-label',`${s.name}. Padrão ${s.code}. Frequência ${formatFrequency(s.freq)} megahertz.`);
+    el.innerHTML = `
+      <strong class="sat-card-name">${s.name}</strong>
+      <div class="sat-card-field">
+        <span class="sat-card-label">PADRÃO:</span>
+        <strong class="signal sat-card-pattern signal-sequence" aria-label="${s.code}">${signalPatternMarkup(s.code)}</strong>
+      </div>
+      <div class="sat-card-field">
+        <span class="sat-card-label">FREQUÊNCIA:</span>
+        <strong class="sat-card-frequency-value">${formatFrequency(s.freq)} MHz</strong>
+      </div>
+    `;
+
+    el.addEventListener('pointerdown', e => beginDrag(e, s.id, el));
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      if (suppressClick) {
+        suppressClick = false;
+        return;
+      }
+      selectSatellite(s.id);
+    });
+    return el;
+  }
+
+  function channelCard(c){
+    const el = document.createElement('div');
+    el.tabIndex = 0;
+    el.setAttribute('role','button');
+    el.setAttribute('aria-label',`Canal ${c.id}. Padrão ${c.pattern}. Frequência válida ${c.frequency}.`);
+    el.dataset.channel = c.id;
+    el.className = 'channel-slot rounded-2xl border border-dashed p-4 text-left';
+    el.style.borderColor = 'var(--viz-border)';
+    el.innerHTML = `
+      <div class="channel-header"><span>CANAL ${c.id}</span></div>
+      <div class="channel-requirements">
+        <div class="channel-requirement">
+          <span>PADRÃO</span>
+          <strong class="signal signal-sequence" aria-label="${c.pattern}">${signalPatternMarkup(c.pattern)}</strong>
+        </div>
+        <div class="channel-requirement channel-frequency">
+          <span>FAIXA DE FREQUÊNCIA</span>
+          <strong>${c.frequency}</strong>
+        </div>
+      </div>
+      <div class="drop-label">↓ SOLTE O CARTÃO NESTE CANAL ↓</div>
+      <div class="assigned"><div class="assigned-empty">Nenhum cartão colocado</div></div>
+    `;
+
+    // Alternativa ao arraste: clicar no cartão e depois no canal.
+    el.addEventListener('click', () => {
+      if (selected) assign(selected, c.id);
+    });
+    el.addEventListener('keydown', e => {
+      if ((e.key === 'Enter' || e.key === ' ') && selected){
+        e.preventDefault();
+        assign(selected, c.id);
+      }
+    });
+    return el;
+  }
+
+  satWrap.innerHTML = '';
+  channelWrap.innerHTML = '';
+
+  const shuffledSats = [...sats];
+  for (let i = shuffledSats.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledSats[i], shuffledSats[j]] = [shuffledSats[j], shuffledSats[i]];
+  }
+
+  shuffledSats.forEach(s => satWrap.appendChild(satCard(s)));
+  channels.forEach(c => channelWrap.appendChild(channelCard(c)));
+
+  function beginDrag(e, satId, source){
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+    drag = {
+      satId,
+      source,
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      x: e.clientX,
+      y: e.clientY,
+      active: false,
+      ghost: null
+    };
+
+    source.setPointerCapture?.(e.pointerId);
+
+    document.addEventListener('pointermove', moveDrag, true);
+    document.addEventListener('pointerup', endDrag, true);
+    document.addEventListener('pointercancel', cancelDrag, true);
+  }
+
+  function activateDrag(){
+    if (!drag || drag.active) return;
+
+    drag.active = true;
+    selected = drag.satId;
+    drag.source.classList.add('dragging-source');
+
+    $$('.satellite-card').forEach(card =>
+      card.classList.toggle('selected', card.dataset.sat === drag.satId)
+    );
+
+    const ghost = drag.source.cloneNode(true);
+    ghost.removeAttribute('id');
+    ghost.classList.remove('selected','dragging-source','quarantined');
+    ghost.classList.add('drag-ghost');
+    gameRoot.appendChild(ghost);
+    drag.ghost = ghost;
+
+    moveGhost();
+    feedback.innerHTML = '<span class="status-dot"></span>Cartão em movimento. Enquanto segura o botão do mouse, use a RODA DO MOUSE para subir ou descer a página.';
+
+    startAutoScroll();
+  }
+
+  function moveDrag(e){
+    if (!drag || e.pointerId !== drag.pointerId) return;
+
+    drag.x = e.clientX;
+    drag.y = e.clientY;
+
+    if (!drag.active){
+      const distance = Math.hypot(
+        e.clientX - drag.startX,
+        e.clientY - drag.startY
+      );
+      if (distance < 6) return;
+      activateDrag();
+    }
+
+    moveGhost();
+    updateDropTarget();
+  }
+
+  function moveGhost(){
+    if (!drag?.ghost) return;
+    drag.ghost.style.left = `${drag.x}px`;
+    drag.ghost.style.top = `${drag.y}px`;
+  }
+
+  function updateDropTarget(){
+    $$('.channel-slot.target').forEach(el => el.classList.remove('target'));
+    quarantineDrop.classList.remove('quarantine-target');
+
+    if (!drag?.active) return;
+
+    const under = document.elementFromPoint(drag.x, drag.y);
+    const channel = under?.closest?.('.channel-slot');
+    const quarantine = under?.closest?.('#quarantineDrop');
+
+    if (channel) channel.classList.add('target');
+    if (quarantine) quarantineDrop.classList.add('quarantine-target');
+  }
+
+  function startAutoScroll(){
+    if (autoScrollFrame) cancelAnimationFrame(autoScrollFrame);
+
+    const loop = () => {
+      if (!drag?.active){
+        autoScrollFrame = null;
+        return;
+      }
+
+      const edge = 95;
+      const maxSpeed = 16;
+
+      if (drag.y < edge){
+        const force = (edge - drag.y) / edge;
+        window.scrollBy(0, -Math.max(4, maxSpeed * force));
+      } else if (drag.y > window.innerHeight - edge){
+        const force = (drag.y - (window.innerHeight - edge)) / edge;
+        window.scrollBy(0, Math.max(4, maxSpeed * force));
+      }
+
+      updateDropTarget();
+      autoScrollFrame = requestAnimationFrame(loop);
+    };
+
+    autoScrollFrame = requestAnimationFrame(loop);
+  }
+
+  // Esta é a parte importante: a roda continua funcionando enquanto o cartão está preso.
+  window.addEventListener('wheel', e => {
+    if (!drag?.active) return;
+
+    e.preventDefault();
+    window.scrollBy(0, e.deltaY);
+
+    // O cursor continua no mesmo lugar da tela, então recalculamos o alvo
+    // após a página se mover.
+    requestAnimationFrame(() => {
+      moveGhost();
+      updateDropTarget();
+    });
+  }, {passive:false});
+
+  function endDrag(e){
+    if (!drag || e.pointerId !== drag.pointerId) return;
+
+    if (drag.active){
+      const under = document.elementFromPoint(drag.x, drag.y);
+      const channel = under?.closest?.('.channel-slot');
+      const quarantine = under?.closest?.('#quarantineDrop');
+
+      if (channel){
+        assign(drag.satId, channel.dataset.channel);
+      } else if (quarantine){
+        quarantineSignal(drag.satId);
+      } else {
+        feedback.innerHTML = '<span class="status-dot"></span>Cartão solto fora de uma área válida. Ele voltou para a lista.';
+      }
+
+      suppressClick = true;
+    }
+
+    cleanupDrag();
+  }
+
+  function cancelDrag(){
+    cleanupDrag();
+  }
+
+  function cleanupDrag(){
+    if (!drag) return;
+
+    drag.source.classList.remove('dragging-source');
+    drag.ghost?.remove();
+
+    $$('.channel-slot.target').forEach(el => el.classList.remove('target'));
+    quarantineDrop.classList.remove('quarantine-target');
+
+    document.removeEventListener('pointermove', moveDrag, true);
+    document.removeEventListener('pointerup', endDrag, true);
+    document.removeEventListener('pointercancel', cancelDrag, true);
+
+    if (autoScrollFrame) cancelAnimationFrame(autoScrollFrame);
+    autoScrollFrame = null;
+    drag = null;
+  }
+
+  function clearChannelError(slot){
+    if (!slot) return;
+    slot.classList.remove('has-error');
+    slot.removeAttribute('aria-invalid');
+    slot.removeAttribute('title');
+  }
+
+  function clearValidationErrors(){
+    $$('.channel-slot.has-error').forEach(clearChannelError);
+    $$('.quarantine-satellite.has-error-card').forEach(card => {
+      card.classList.remove('has-error-card');
+      card.removeAttribute('aria-invalid');
+      card.removeAttribute('title');
+    });
+    quarantineDrop.classList.remove('has-error');
+    quarantineDrop.removeAttribute('aria-invalid');
+    quarantineDrop.removeAttribute('title');
+    feedback.classList.remove('is-error');
+  }
+
+  function updateVerifyAvailability(){
+    const channelCount = Object.keys(assignments).length;
+    const trashCount = quarantined.size;
+    const guideComplete = !challengeOne.classList.contains('tutorial-locked');
+    const boardComplete = channelCount === channels.length && trashCount === 4;
+
+    verifyBtn.disabled = !(guideComplete && boardComplete);
+    verifyBtn.textContent = !guideComplete
+      ? 'VALIDAR TRIAGEM — CONCLUA O GUIA'
+      : boardComplete
+        ? 'VALIDAR TRIAGEM'
+        : `VALIDAR TRIAGEM — ${channelCount}/4 CANAIS · ${trashCount}/4 LIXEIRA`;
+  }
+
+  function selectSatellite(id){
+    selected = id;
+    $$('.satellite-card').forEach(el =>
+      el.classList.toggle('selected', el.dataset.sat === id)
+    );
+
+    const s = sats.find(x => x.id === id);
+    feedback.innerHTML = `<span class="status-dot"></span>${s.name}, ${formatFrequency(s.freq)} MHz, selecionado. Arraste para um CANAL ou para a LIXEIRA.`;
+  }
+
+  function assign(satId, channelId){
+    clearChannelError(document.querySelector(`[data-channel="${channelId}"]`));
+    feedback.classList.remove('is-error','is-success');
+    if (quarantined.delete(satId)){
+      quarantineDrop.classList.remove('has-error');
+      quarantineDrop.removeAttribute('aria-invalid');
+      quarantineDrop.removeAttribute('title');
+    }
+
+    Object.keys(assignments).forEach(k => {
+      if (assignments[k] === satId){
+        delete assignments[k];
+        clearChannelError(document.querySelector(`[data-channel="${k}"]`));
+      }
+    });
+
+    assignments[channelId] = satId;
+    selected = null;
+
+    $$('.satellite-card').forEach(el => el.classList.remove('selected'));
+
+    renderAssignments();
+    updateQuarantine();
+
+    const sat = sats.find(s => s.id === satId);
+    feedback.innerHTML = `<span class="status-dot"></span>✓ ${sat.name}, ${formatFrequency(sat.freq)} MHz, colocado no CANAL ${channelId}. Continue comparando padrão e frequência.`;
+  }
+
+  function quarantineSignal(id){
+    if (!id) return;
+
+    quarantineDrop.classList.remove('has-error');
+    quarantineDrop.removeAttribute('aria-invalid');
+    quarantineDrop.removeAttribute('title');
+    feedback.classList.remove('is-error','is-success');
+
+    if (!quarantined.has(id) && quarantined.size >= 4){
+      feedback.innerHTML = '<span class="status-dot"></span>⚠ A lixeira já contém 4 sinais. Mova um deles para um canal antes de adicionar outro.';
+      return;
+    }
+
+    Object.keys(assignments).forEach(k => {
+      if (assignments[k] === id){
+        delete assignments[k];
+        clearChannelError(document.querySelector(`[data-channel="${k}"]`));
+      }
+    });
+
+    quarantined.add(id);
+    selected = null;
+
+    $$('.satellite-card').forEach(el => el.classList.remove('selected'));
+
+    renderAssignments();
+    updateQuarantine();
+
+    feedback.innerHTML = '<span class="status-dot"></span>Sinal descartado. A lixeira precisa terminar com exatamente 4 interferências.';
+  }
+
+  function updateQuarantine(){
+    quarantineCount.textContent = `${quarantined.size}/4 na lixeira`;
+
+    quarantineList.innerHTML = '';
+    quarantineList.classList.toggle('is-empty',quarantined.size === 0);
+
+    if (quarantined.size){
+      [...quarantined].forEach(id => {
+        const sat = sats.find(s => s.id === id);
+        if (!sat) return;
+        const card = satCard(sat);
+        card.classList.add('quarantine-satellite');
+        card.setAttribute('aria-label',`${sat.name}. Padrão ${sat.code}. Frequência ${formatFrequency(sat.freq)} megahertz. Cartão na lixeira; arraste ou selecione para mover.`);
+        quarantineList.appendChild(card);
+      });
+    } else {
+      quarantineList.textContent = 'Lixeira vazia.';
+    }
+
+    const assignedIds = new Set(Object.values(assignments));
+    satWrap.querySelectorAll('.satellite-card').forEach(card => {
+      const inTrash = quarantined.has(card.dataset.sat);
+      const unavailable = inTrash || assignedIds.has(card.dataset.sat);
+      card.classList.toggle('is-quarantined-source',inTrash);
+      card.setAttribute('aria-hidden',unavailable ? 'true' : 'false');
+      card.tabIndex = unavailable ? -1 : 0;
+    });
+
+    updateVerifyAvailability();
+  }
+
+  function renderAssignments(){
+    channels.forEach(c => {
+      const slot = document.querySelector(`[data-channel="${c.id}"]`);
+      const sat = sats.find(s => s.id === assignments[c.id]);
+      const assignedArea = slot.querySelector('.assigned');
+
+      slot.classList.toggle('has-assignment',Boolean(sat));
+      slot.tabIndex = 0;
+      slot.setAttribute('role','button');
+      slot.removeAttribute('aria-hidden');
+      slot.setAttribute('aria-label',sat
+        ? `Canal ${c.id} com o cartão ${sat.name}, frequência ${formatFrequency(sat.freq)} megahertz. Arraste o cartão para movê-lo.`
+        : `Canal ${c.id}. Padrão ${c.pattern}. Faixa de frequência ${c.frequency}. Solte um cartão aqui.`);
+
+      assignedArea.innerHTML = '';
+      if (sat){
+        const placedCard = satCard(sat);
+        placedCard.classList.add('placed-satellite');
+        placedCard.setAttribute('aria-label',`${sat.name}. Padrão ${sat.code}. Frequência ${formatFrequency(sat.freq)} megahertz. Cartão colocado no Canal ${c.id}. Arraste para mover.`);
+        assignedArea.appendChild(placedCard);
+      } else {
+        assignedArea.innerHTML = '<div class="assigned-empty">Nenhum cartão colocado</div>';
+      }
+    });
+
+    const assignedIds = new Set(Object.values(assignments));
+    satWrap.querySelectorAll('.satellite-card').forEach(card => {
+      const isInsideChannel = assignedIds.has(card.dataset.sat);
+      const isInsideTrash = quarantined.has(card.dataset.sat);
+      const unavailable = isInsideChannel || isInsideTrash;
+      card.classList.toggle('is-assigned-source',isInsideChannel);
+      card.classList.toggle('is-quarantined-source',isInsideTrash);
+      card.setAttribute('aria-hidden',unavailable ? 'true' : 'false');
+      card.tabIndex = unavailable ? -1 : 0;
+    });
+
+    progressTop.textContent = `${Object.keys(assignments).length}/4`;
+    updateVerifyAvailability();
+  }
+
+  function runValidation(mode,onDone){
+    if (validationTimer) clearInterval(validationTimer);
+
+    validationOverlay.classList.remove('hidden');
+    validationFill.style.width = '0%';
+    validationPercent.textContent = '0%';
+
+    const profiles = {
+      triage:{
+        title:'Validando triagem dos sinais...',
+        steps:[[16,'Lendo padrões orbitais...'],[38,'Comparando faixas de frequência...'],[62,'Verificando os quatro canais...'],[84,'Inspecionando a lixeira...'],[100,'Triagem analisada.']]
+      },
+      wave:{
+        title:'Validando sincronia da onda...',
+        steps:[[20,'Lendo a referência NEXUS...'],[44,'Comparando frequência...'],[68,'Comparando amplitude e fase...'],[90,'Calculando sincronia...'],[100,'Onda analisada.']]
+      },
+      code:{
+        title:'Validando código de acesso...',
+        steps:[[20,'Lendo os quatro dígitos...'],[46,'Confirmando a ordem A → B → C → D...'],[72,'Verificando a chave orbital...'],[92,'Autorizando reinicialização...'],[100,'Código analisado.']]
+      }
+    };
+    const profile = profiles[mode] || profiles.triage;
+    const steps = profile.steps;
+    validationTitle.textContent = profile.title;
+
+    let i = 0;
+
+    const tick = () => {
+      const [value,text] = steps[i];
+      validationFill.style.width = `${value}%`;
+      validationPercent.textContent = `${value}%`;
+      validationText.textContent = text;
+      i++;
+
+      if (i >= steps.length){
+        clearInterval(validationTimer);
+        validationTimer = setTimeout(() => {
+          validationOverlay.classList.add('hidden');
+          onDone();
+        }, 320);
+      }
+    };
+
+    tick();
+    validationTimer = setInterval(tick, 360);
+  }
+
+  function verify(){
+    feedback.classList.remove('is-success','is-error');
+    if (Object.keys(assignments).length !== 4 || quarantined.size !== 4){
+      feedback.classList.add('is-error');
+      feedback.innerHTML = '<span class="status-dot"></span>⚠ Para avançar: preencha os 4 canais e jogue exatamente 4 sinais na lixeira.';
+      return;
+    }
+
+    runValidation('triage',() => {
+      const wrongChannels = channels.filter(c => assignments[c.id] !== c.answer);
+      const wrongQuarantine = [...quarantined].filter(id => !sats.find(s => s.id === id)?.decoy);
+      const missingDecoys = sats.filter(s => s.decoy && !quarantined.has(s.id));
+
+      if (wrongChannels.length || wrongQuarantine.length || missingDecoys.length){
+        clearValidationErrors();
+        wrongChannels.forEach(c => {
+          const slot = document.querySelector(`[data-channel="${c.id}"]`);
+          if (!slot) return;
+          slot.classList.add('has-error');
+          slot.setAttribute('aria-invalid','true');
+          slot.setAttribute('title',`Alerta: a conexão do Canal ${c.id} está incorreta.`);
+          slot.setAttribute('aria-label',`Alerta: conexão incorreta no Canal ${c.id}. Revise o padrão e a frequência do cartão.`);
+        });
+
+        const trashHasError = Boolean(wrongQuarantine.length || missingDecoys.length);
+        quarantineDrop.classList.toggle('has-error',trashHasError);
+        if (trashHasError){
+          quarantineDrop.setAttribute('aria-invalid','true');
+          quarantineDrop.setAttribute('title','Alerta: revise os cartões colocados na lixeira.');
+        }
+        wrongQuarantine.forEach(id => {
+          const card = quarantineList.querySelector(`[data-sat="${id}"]`);
+          if (!card) return;
+          card.classList.add('has-error-card');
+          card.setAttribute('aria-invalid','true');
+          card.setAttribute('title','Alerta: este sinal legítimo não deve permanecer na lixeira.');
+        });
+
+        const issues = [];
+        if (wrongChannels.length){
+          const channelNames = wrongChannels.map(c => `Canal ${c.id}`).join(', ');
+          issues.push(`Revise: ${channelNames}.`);
+        }
+        if (wrongQuarantine.length){
+          issues.push(`A lixeira contém ${wrongQuarantine.length} sinal legítimo${wrongQuarantine.length > 1 ? 's' : ''}.`);
+        }
+        if (missingDecoys.length){
+          issues.push(`Ainda há ${missingDecoys.length} interferência${missingDecoys.length > 1 ? 's' : ''} fora da lixeira.`);
+        }
+
+        const issueMessage = issues.join(' ');
+        feedback.classList.add('is-error');
+        feedback.innerHTML = `<span class="status-dot"></span><span><strong>TRIAGEM REJEITADA:</strong> ${issueMessage}</span>`;
+        showResult(
+          false,
+          'TRIAGEM REJEITADA',
+          `${issueMessage} Corrija os itens destacados e valide novamente.`
+        );
+        return;
+      }
+
+      clearValidationErrors();
+      feedback.classList.add('is-success');
+      feedback.innerHTML = '<span class="status-dot"></span><span><strong>✓ ETAPA 1 CONCLUÍDA:</strong> os quatro satélites legítimos foram conectados e todas as interferências foram descartadas.</span>';
+      progressTop.textContent = '4/4';
+      verifyBtn.disabled = true;
+      verifyBtn.textContent = '✓ TRIAGEM CONCLUÍDA';
+
+      setFlow(2);
+      showMissionStage(2);
+      tutorialTwo.show();
+      showResult(
+        true,
+        'ETAPA 1 CONCLUÍDA',
+        'Todos os canais estão corretos e as quatro interferências foram identificadas. O guia da Etapa 2 foi liberado.'
+      );
+    });
+  }
+
+  function updateWaveHeader(){
+    const target = waveTargets[waveRoundIndex];
+    waveSatellite.textContent = target.sat;
+    waveRound.textContent = `${waveRoundIndex + 1}/${waveTargets.length}`;
+  }
+
+  function resetWaveControls(randomize=false){
+    if (randomize){
+      freqSlider.value = (1.2 + Math.random()*6.2).toFixed(1);
+      ampSlider.value = (0.5 + Math.random()*1.0).toFixed(2);
+      phaseSlider.value = String(Math.round((-160 + Math.random()*320)/5)*5);
+    } else {
+      freqSlider.value = '3';
+      ampSlider.value = '1';
+      phaseSlider.value = '0';
+    }
+
+    updateWaveLabels();
+    drawWaveGame();
+  }
+
+  function startWaveChallenge(){
+    waveRoundIndex = 0;
+    updateWaveHeader();
+    resetWaveControls(true);
+    frequencyFeedback.classList.remove('is-success');
+    frequencyFeedback.textContent = 'Ajuste frequência, amplitude e fase até atingir pelo menos 90%.';
+  }
+
+  function updateSliderProgress(slider){
+    const min = Number(slider.min);
+    const max = Number(slider.max);
+    const value = Number(slider.value);
+    const progress = max === min ? 0 : ((value-min)/(max-min))*100;
+    slider.style.setProperty('--range-progress',`${Math.max(0,Math.min(100,progress))}%`);
+  }
+
+  function updateWaveLabels(){
+    freqValue.textContent = Number(freqSlider.value).toFixed(1);
+    ampValue.textContent = Number(ampSlider.value).toFixed(2);
+    phaseValue.textContent = `${Number(phaseSlider.value)}°`;
+    [freqSlider,ampSlider,phaseSlider].forEach(updateSliderProgress);
+  }
+
+  function waveScore(){
+    const target = waveTargets[waveRoundIndex];
+    const f = Number(freqSlider.value);
+    const a = Number(ampSlider.value);
+    const p = Number(phaseSlider.value);
+    const samples = 450;
+    let squaredError = 0;
+
+    // Mede a diferença real entre os pontos das duas curvas desenhadas.
+    for (let i=0;i<=samples;i++){
+      const position = i/samples;
+      const targetAngle = position*Math.PI*2*target.frequency + target.phase*Math.PI/180;
+      const playerAngle = position*Math.PI*2*f + p*Math.PI/180;
+      const targetPoint = Math.sin(targetAngle)*target.amplitude;
+      const playerPoint = Math.sin(playerAngle)*a;
+      const difference = playerPoint-targetPoint;
+      squaredError += difference*difference;
+    }
+
+    const rmsError = Math.sqrt(squaredError/(samples+1));
+    return Math.max(0,Math.min(100,Math.round((1-rmsError/1.4)*100)));
+  }
+
+  function waveGuidance(score){
+    if (score >= 90) return '✓ Sincronia suficiente. Valide a onda para avançar.';
+
+    const target = waveTargets[waveRoundIndex];
+    const currentPhase = Number(phaseSlider.value);
+    const phaseDistance = Math.abs((((currentPhase-target.phase)+540)%360)-180);
+    const differences = [
+      {label:'FREQUÊNCIA',value:Math.abs(Number(freqSlider.value)-target.frequency)/7},
+      {label:'AMPLITUDE',value:Math.abs(Number(ampSlider.value)-target.amplitude)/1.2},
+      {label:'FASE',value:phaseDistance/180}
+    ].sort((a,b) => b.value-a.value);
+
+    return `Dica: ajuste ${differences[0].label} primeiro; é o controle mais distante da referência.`;
+  }
+
+  function drawWave(ctx,frequency,amplitude,phase,stroke,dashed){
+    const w = waveCanvas.width;
+    const h = waveCanvas.height;
+    const mid = h/2;
+    const ampPx = 58*amplitude;
+
+    ctx.save();
+    ctx.beginPath();
+
+    if (dashed) ctx.setLineDash([10,8]);
+
+    for (let x=0;x<=w;x+=2){
+      const angle = (x/w)*Math.PI*2*frequency + phase*Math.PI/180;
+      const y = mid + Math.sin(angle)*ampPx;
+
+      if (x===0) ctx.moveTo(x,y);
+      else ctx.lineTo(x,y);
+    }
+
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = dashed ? 2 : 3;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawWaveGame(){
+    if (!waveCtx) return;
+
+    const target = waveTargets[waveRoundIndex];
+
+    waveCtx.clearRect(0,0,waveCanvas.width,waveCanvas.height);
+    waveCtx.strokeStyle = 'rgba(140,160,170,.18)';
+    waveCtx.lineWidth = 1;
+
+    for (let x=0;x<=waveCanvas.width;x+=45){
+      waveCtx.beginPath();
+      waveCtx.moveTo(x,0);
+      waveCtx.lineTo(x,waveCanvas.height);
+      waveCtx.stroke();
+    }
+
+    for (let y=0;y<=waveCanvas.height;y+=35){
+      waveCtx.beginPath();
+      waveCtx.moveTo(0,y);
+      waveCtx.lineTo(waveCanvas.width,y);
+      waveCtx.stroke();
+    }
+
+    drawWave(
+      waveCtx,
+      target.frequency,
+      target.amplitude,
+      target.phase,
+      'rgba(190,210,218,.62)',
+      true
+    );
+
+    drawWave(
+      waveCtx,
+      Number(freqSlider.value),
+      Number(ampSlider.value),
+      Number(phaseSlider.value),
+      'rgba(180,132,255,.95)',
+      false
+    );
+
+    const score = waveScore();
+    const ready = score >= 90;
+
+    waveAccuracy.textContent = `${score}%`;
+    waveAccuracyFill.style.width = `${score}%`;
+    waveAccuracyState.textContent = ready
+      ? 'PRONTO PARA VALIDAR'
+      : score >= 70 ? 'QUASE LÁ' : 'CONTINUE AJUSTANDO';
+    waveSyncCard.classList.toggle('is-ready',ready);
+    waveSyncCard.setAttribute('aria-valuenow',String(score));
+    waveValidateBtn.disabled = !ready;
+    waveValidateBtn.textContent = ready ? '✓ VALIDAR ONDA' : 'VALIDAR ONDA — ATINJA 90%';
+    frequencyFeedback.classList.remove('is-error');
+    frequencyFeedback.classList.toggle('is-success',ready);
+    frequencyFeedback.textContent = waveGuidance(score);
+  }
+
+  function validateWave(){
+    const score = waveScore();
+
+    runValidation('wave',() => {
+      if (score < 90){
+        frequencyFeedback.classList.remove('is-success');
+        showResult(
+          false,
+          'ONDA FORA DE SINCRONIA',
+          `Sincronia em ${score}%. Ajuste frequência, amplitude e fase até chegar a 90%.`
+        );
+        return;
+      }
+
+      if (waveRoundIndex < waveTargets.length - 1){
+        const completedSatellite = waveTargets[waveRoundIndex].sat;
+        waveRoundIndex++;
+        updateWaveHeader();
+        resetWaveControls(true);
+        frequencyFeedback.classList.add('is-success');
+        frequencyFeedback.textContent = `✓ ${completedSatellite} sincronizado. Próximo sinal carregado; continue ajustando.`;
+        return;
+      }
+
+      unlocked = true;
+      finalKeySequencePending = true;
+      codeInput.disabled = true;
+      codeBtn.disabled = true;
+      keySequenceStatus.textContent = 'SEQUÊNCIA PRONTA PARA DECODIFICAÇÃO...';
+      setFlow(3);
+      showMissionStage(3);
+
+      frequencyFeedback.classList.add('is-success');
+      frequencyFeedback.textContent = '✓ Todas as ondas foram sincronizadas. Chave final liberada.';
+      showResult(
+        true,
+        'ONDAS SINCRONIZADAS',
+        'As três ondas foram estabilizadas. O NEXUS liberou a chave de reinicialização.'
+      );
+
+      finalStage.scrollIntoView({behavior:'smooth',block:'nearest'});
+    });
+  }
+
+  function generateFinalKeys(){
+    finalKeys = {};
+    channels.forEach(c => {
+      finalKeys[c.id] = String(Math.floor(Math.random() * 10));
+    });
+  }
+
+  function buildKeys(){
+    finalKeysWrap.innerHTML = '';
+
+    channels.forEach(c => {
+      const sat = sats.find(s => s.id === assignments[c.id]);
+      const box = document.createElement('div');
+
+      box.className = 'metric-card final-key-card';
+      box.innerHTML = `
+        <div class="text-sm" style="color:var(--viz-muted)">Canal ${c.id} · ${sat.name}</div>
+        <div class="final-key-value" data-final-key="${c.id}">${finalKeys[c.id]}</div>`;
+
+      finalKeysWrap.appendChild(box);
+    });
+  }
+
+  function updateCodeAvailability(){
+    const digits = codeInput.value.replace(/\D/g,'').slice(0,4);
+    if (codeInput.value !== digits) codeInput.value = digits;
+
+    const ready = unlocked && !codeInput.disabled && digits.length === 4;
+    codeBtn.disabled = !ready;
+    codeBtn.textContent = ready ? 'EXECUTAR REINICIALIZAÇÃO' : 'DIGITE OS 4 DÍGITOS';
+  }
+
+  function updateFinalKeys(){
+    if (!unlocked) return;
+    generateFinalKeys();
+    buildKeys();
+  }
+
+  function startFinalKeyAnimation(){
+    if (finalKeyTimer) clearInterval(finalKeyTimer);
+    if (finalKeyStopTimer) clearTimeout(finalKeyStopTimer);
+
+    finalKeySequencePending = false;
+    finalKeysWrap.classList.add('is-scrambling');
+    finalKeysWrap.classList.remove('is-stable');
+    keySequenceStatus.textContent = 'DECODIFICANDO — NÚMEROS EM ALTA VELOCIDADE...';
+    codeInput.value = '';
+    codeInput.disabled = true;
+    codeBtn.disabled = true;
+    codeBtn.textContent = 'AGUARDE A SEQUÊNCIA';
+
+    generateFinalKeys();
+    buildKeys();
+    finalKeyTimer = setInterval(updateFinalKeys, 55);
+    finalKeyStopTimer = setTimeout(stopFinalKeyAnimation, 3000);
+  }
+
+  function stopFinalKeyAnimation(){
+    if (finalKeyTimer){
+      clearInterval(finalKeyTimer);
+      finalKeyTimer = null;
+    }
+
+    if (finalKeyStopTimer){
+      clearTimeout(finalKeyStopTimer);
+      finalKeyStopTimer = null;
+    }
+
+    generateFinalKeys();
+    buildKeys();
+    finalKeysWrap.classList.remove('is-scrambling');
+    finalKeysWrap.classList.add('is-stable');
+    keySequenceStatus.textContent = '✓ SEQUÊNCIA ESTABILIZADA — DIGITE O CÓDIGO NA ORDEM A → B → C → D';
+    codeInput.disabled = false;
+    updateCodeAvailability();
+    codeInput.focus({preventScroll:true});
+  }
+
+  function getCurrentCode(){
+    return channels.map(c => finalKeys[c.id]).join('');
+  }
+
+  function randomHex(length=8){
+    const chars = '0123456789ABCDEF';
+    return Array.from({length},() => chars[Math.floor(Math.random()*chars.length)]).join('');
+  }
+
+  function createTelemetryLine(){
+    const sat = String(1 + Math.floor(Math.random()*4)).padStart(2,'0');
+    const frequencies = ['130.7','130.9','131.2','131.4'];
+    const statuses = ['LINK_OK','SYNC_LOCK','GPS_FIX','CRC_VALID','SIGNAL_100','ORBIT_STABLE'];
+    const frequency = frequencies[Math.floor(Math.random()*frequencies.length)];
+    const status = statuses[Math.floor(Math.random()*statuses.length)];
+    return `NEXUS::SAT-${sat} // ${frequency}MHz // ${status} // 0x${randomHex(10)}`;
+  }
+
+  function createChallengeCodeLine(){
+    const commands = ['SCAN_CHANNEL','TRACE_SIGNAL','VERIFY_PATTERN','DECODE_PACKET','LOCK_FREQUENCY','FILTER_ECLIPSE'];
+    const registers = ['RX','TX','ORB','SYNC','CRC','NAV'];
+    const command = commands[Math.floor(Math.random()*commands.length)];
+    const register = registers[Math.floor(Math.random()*registers.length)];
+    const channel = String.fromCharCode(65 + Math.floor(Math.random()*4));
+    return `> ${command}(CH_${channel}) :: ${register}=0x${randomHex(6)} // ${createTelemetryLine()}`;
+  }
+
+  function createChallengeStream(index=0,totalStreams=challengeStreams.length || 12){
+    const text = createChallengeCodeLine();
+    const estimatedWidth = Math.min(760,text.length*6.5);
+    const availableX = Math.max(24,challengeCanvasWidth-estimatedWidth-24);
+    return {
+      text,
+      x: 16 + Math.random()*availableX,
+      y: 30 + ((index+.55)/Math.max(1,totalStreams))*(challengeCanvasHeight-60),
+      typed: Math.random()>.68 ? Math.floor(Math.random()*text.length*.55) : 0,
+      typeRate: 15 + Math.random()*22,
+      hold: 1.1 + Math.random()*2.2,
+      alpha: .055 + Math.random()*.055,
+      color: Math.random()>.78 ? '94,220,255' : '97,255,196'
+    };
+  }
+
+  function resizeChallengeCanvas(){
+    if (!challengeCodeCtx) return;
+    const ratio = Math.min(window.devicePixelRatio || 1,1.6);
+    challengeCanvasWidth = window.innerWidth;
+    challengeCanvasHeight = window.innerHeight;
+    challengeCodeCanvas.width = Math.round(challengeCanvasWidth*ratio);
+    challengeCodeCanvas.height = Math.round(challengeCanvasHeight*ratio);
+    challengeCodeCtx.setTransform(ratio,0,0,ratio,0,0);
+
+    const streamCount = Math.max(8,Math.min(16,Math.floor(challengeCanvasHeight/64)));
+    challengeStreams = Array.from({length:streamCount},(_,index) => createChallengeStream(index,streamCount));
+  }
+
+  function drawChallengeCodes(timestamp){
+    const missionVisible = document.body.classList.contains('mission-active') && !document.body.classList.contains('success-active');
+    if (!challengeCodeCtx || !missionVisible){
+      challengeAnimationFrame = null;
+      return;
+    }
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const delta = challengeLastFrame ? Math.min((timestamp-challengeLastFrame)/1000,.05) : 0;
+    challengeLastFrame = timestamp;
+
+    challengeCodeCtx.clearRect(0,0,challengeCanvasWidth,challengeCanvasHeight);
+    challengeCodeCtx.font = '10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+    challengeCodeCtx.textBaseline = 'middle';
+
+    challengeStreams.forEach((stream,index) => {
+      if (reducedMotion){
+        stream.typed = stream.text.length;
+      } else if (stream.typed < stream.text.length){
+        stream.typed = Math.min(stream.text.length,stream.typed + stream.typeRate*delta);
+      } else {
+        stream.hold -= delta;
+        if (stream.hold <= 0){
+          challengeStreams[index] = createChallengeStream(index,challengeStreams.length);
+          return;
+        }
+      }
+
+      const visibleText = stream.text.slice(0,Math.floor(stream.typed));
+      challengeCodeCtx.fillStyle = `rgba(${stream.color},${stream.alpha})`;
+      challengeCodeCtx.fillText(visibleText,stream.x,stream.y);
+
+      if (!reducedMotion && stream.typed < stream.text.length && Math.floor(timestamp/280)%2===0){
+        const cursorX = stream.x + challengeCodeCtx.measureText(visibleText).width + 3;
+        challengeCodeCtx.fillRect(cursorX,stream.y-5,4,10);
+      }
+    });
+
+    if (!reducedMotion){
+      challengeAnimationFrame = requestAnimationFrame(drawChallengeCodes);
+    }
+  }
+
+  function startChallengeCodes(){
+    document.body.classList.add('mission-active');
+    if (!challengeCodeCtx) return;
+    if (challengeAnimationFrame) cancelAnimationFrame(challengeAnimationFrame);
+    resizeChallengeCanvas();
+    challengeLastFrame = 0;
+    challengeAnimationFrame = requestAnimationFrame(drawChallengeCodes);
+  }
+
+  function stopChallengeCodes(){
+    if (challengeAnimationFrame) cancelAnimationFrame(challengeAnimationFrame);
+    challengeAnimationFrame = null;
+    challengeLastFrame = 0;
+    document.body.classList.remove('mission-active');
+    if (challengeCodeCtx){
+      challengeCodeCtx.clearRect(0,0,challengeCanvasWidth,challengeCanvasHeight);
+    }
+  }
+
+  function createSuccessStream(initial=false,index=0,totalStreams=successStreams.length || 14){
+    const text = createTelemetryLine();
+    return {
+      text,
+      x: initial ? Math.random()*successCanvasWidth-successCanvasWidth*.28 : -Math.min(620,text.length*7),
+      y: 30 + ((index+.55)/Math.max(1,totalStreams))*(successCanvasHeight-60),
+      speed: 28 + Math.random()*48,
+      typeRate: 18 + Math.random()*26,
+      typed: initial ? Math.floor(Math.random()*text.length) : 0,
+      alpha: .12 + Math.random()*.16,
+      color: Math.random()>.72 ? '94,220,255' : '97,255,196'
+    };
+  }
+
+  function resizeSuccessCanvas(){
+    if (!successCodeCtx) return;
+    const ratio = Math.min(window.devicePixelRatio || 1,2);
+    successCanvasWidth = window.innerWidth;
+    successCanvasHeight = window.innerHeight;
+    successCodeCanvas.width = Math.round(successCanvasWidth*ratio);
+    successCodeCanvas.height = Math.round(successCanvasHeight*ratio);
+    successCodeCtx.setTransform(ratio,0,0,ratio,0,0);
+
+    const streamCount = Math.max(9,Math.min(20,Math.floor(successCanvasHeight/52)));
+    successStreams = Array.from({length:streamCount},(_,index) => createSuccessStream(true,index,streamCount));
+  }
+
+  function drawSuccessCodes(timestamp){
+    if (!successCodeCtx || success.classList.contains('hidden')) return;
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const delta = successLastFrame ? Math.min((timestamp-successLastFrame)/1000,.05) : 0;
+    successLastFrame = timestamp;
+
+    successCodeCtx.clearRect(0,0,successCanvasWidth,successCanvasHeight);
+    successCodeCtx.font = '11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+    successCodeCtx.textBaseline = 'middle';
+
+    successStreams.forEach((stream,index) => {
+      if (!reducedMotion){
+        stream.x += stream.speed*delta;
+        stream.typed = Math.min(stream.text.length,stream.typed + stream.typeRate*delta);
+      } else {
+        stream.typed = stream.text.length;
+      }
+
+      const visibleText = stream.text.slice(0,Math.floor(stream.typed));
+      successCodeCtx.fillStyle = `rgba(${stream.color},${stream.alpha})`;
+      successCodeCtx.fillText(visibleText,stream.x,stream.y);
+
+      if (!reducedMotion && stream.typed < stream.text.length && Math.floor(timestamp/260)%2===0){
+        const cursorX = stream.x + successCodeCtx.measureText(visibleText).width + 3;
+        successCodeCtx.fillRect(cursorX,stream.y-6,5,11);
+      }
+
+      const textWidth = successCodeCtx.measureText(stream.text).width;
+      if (!reducedMotion && stream.x > successCanvasWidth + 30){
+        successStreams[index] = createSuccessStream(false,index);
+        successStreams[index].x = -textWidth-Math.random()*220;
+        successStreams[index].y = 28 + Math.random()*(successCanvasHeight-56);
+      }
+    });
+
+    if (!reducedMotion){
+      successAnimationFrame = requestAnimationFrame(drawSuccessCodes);
+    }
+  }
+
+  function typeSuccessTerminalLine(){
+    const text = createTelemetryLine();
+    let index = 0;
+
+    function typeCharacter(){
+      if (success.classList.contains('hidden')) return;
+      successTerminalLine.textContent = text.slice(0,index);
+      index++;
+
+      if (index <= text.length){
+        successTerminalTimer = setTimeout(typeCharacter,28 + Math.random()*24);
+      } else {
+        successTerminalTimer = setTimeout(typeSuccessTerminalLine,650);
+      }
+    }
+
+    typeCharacter();
+  }
+
+  function stopSuccessAnimation(){
+    if (successAnimationFrame) cancelAnimationFrame(successAnimationFrame);
+    if (successTerminalTimer) clearTimeout(successTerminalTimer);
+    successAnimationFrame = null;
+    successTerminalTimer = null;
+    successLastFrame = 0;
+    document.body.classList.remove('success-active');
+
+    if (successCodeCtx){
+      successCodeCtx.clearRect(0,0,successCanvasWidth,successCanvasHeight);
+    }
+  }
+
+  function showSuccessScreen(){
+    stopSuccessAnimation();
+    stopChallengeCodes();
+    resultModal.classList.add('hidden');
+    showMissionStage(0);
+    success.classList.remove('hidden');
+    document.body.classList.add('success-active');
+    resizeSuccessCanvas();
+    successLastFrame = 0;
+    successAnimationFrame = requestAnimationFrame(drawSuccessCodes);
+    typeSuccessTerminalLine();
+    setTimeout(() => restartProtocolBtn?.focus({preventScroll:true}),500);
+  }
+
+  function checkCode(){
+    if (!unlocked) return;
+
+    if (finalKeyTimer || finalKeySequencePending){
+      keySequenceStatus.textContent = 'AGUARDE OS NÚMEROS PARAREM ANTES DE DIGITAR.';
+      return;
+    }
+
+    const out = $('#codeFeedback');
+    const value = codeInput.value.replace(/\D/g,'');
+
+    if (value.length !== 4){
+      out.classList.remove('is-success');
+      out.classList.add('is-error');
+      out.textContent = 'Digite os quatro números do código.';
+      return;
+    }
+
+    runValidation('code',() => {
+      if (value === getCurrentCode()){
+        out.classList.remove('is-error');
+        out.classList.add('is-success');
+        out.textContent = '✓ CÓDIGO ACEITO — reiniciando comunicação...';
+        codeBtn.disabled = true;
+        codeInput.disabled = true;
+
+        showSuccessScreen();
+      } else {
+        out.classList.remove('is-success');
+        out.classList.add('is-error');
+        out.textContent = '❌ Código incorreto. Confira os números exibidos e a ordem A → B → C → D.';
+
+        showResult(
+          false,
+          'CÓDIGO REJEITADO',
+          'A sequência não corresponde aos números atuais da chave de sinal.'
+        );
+      }
+    });
+  }
+
+  function showResult(ok,title,message){
+    resultCard.classList.toggle('error',!ok);
+    resultIcon.textContent = ok ? '✓' : '×';
+    resultTitle.textContent = title;
+    resultMessage.textContent = message;
+    resultClose.textContent = ok ? 'CONTINUAR' : 'TENTAR NOVAMENTE';
+
+    resultModal.dataset.success = ok ? '1' : '0';
+    resultModal.classList.remove('hidden');
+    requestAnimationFrame(() => resultClose.focus({preventScroll:true}));
+  }
+
+  function closeResult(){
+    resultModal.classList.add('hidden');
+
+    if (finalKeySequencePending){
+      startFinalKeyAnimation();
+      requestAnimationFrame(() => finalStage.scrollIntoView({behavior:'smooth',block:'nearest'}));
+    }
+
+  }
+
+  function reset(){
+    cleanupDrag();
+    stopSuccessAnimation();
+    clearValidationErrors();
+
+    if (finalKeyTimer) clearInterval(finalKeyTimer);
+    if (finalKeyStopTimer) clearTimeout(finalKeyStopTimer);
+    finalKeyTimer = null;
+    finalKeyStopTimer = null;
+    finalKeySequencePending = false;
+
+    Object.keys(assignments).forEach(k => delete assignments[k]);
+    quarantined.clear();
+
+    selected = null;
+    unlocked = false;
+    waveRoundIndex = 0;
+
+    renderAssignments();
+    updateQuarantine();
+    setFlow(1);
+
+    tutorialOne.reset(false);
+    tutorialTwo.reset(true);
+    showMissionStage(1);
+    verifyBtn.disabled = true;
+
+    calibrationStage.classList.add('hidden');
+    finalStage.classList.add('hidden');
+    success.classList.add('hidden');
+
+    finalKeys = {};
+    finalKeysWrap.innerHTML = '';
+    finalKeysWrap.classList.remove('is-scrambling','is-stable');
+    keySequenceStatus.textContent = 'AGUARDANDO DECODIFICAÇÃO DA SEQUÊNCIA...';
+    codeInput.value = '';
+    codeInput.disabled = false;
+    codeBtn.disabled = true;
+    codeBtn.textContent = 'DIGITE OS 4 DÍGITOS';
+    $('#codeFeedback').classList.remove('is-success','is-error');
+    $('#codeFeedback').textContent = '';
+
+    resetWaveControls(false);
+    frequencyFeedback.classList.remove('is-success');
+    frequencyFeedback.textContent = 'Ajuste os controles observando as duas ondas.';
+
+    resultModal.classList.add('hidden');
+    validationOverlay.classList.add('hidden');
+
+    feedback.classList.remove('is-success','is-error');
+    feedback.innerHTML = '<span class="status-dot"></span><span>Compare padrão e frequência para definir o destino de cada cartão.</span>';
+  }
+
+  $('#startProtocolBtn')?.addEventListener('click', () => {
+    $('#sat-game').classList.remove('protocol-not-started');
+    startChallengeCodes();
+    $('.command-deck')?.scrollIntoView({behavior:'smooth',block:'start'});
+  });
+
+  restartProtocolBtn?.addEventListener('click', () => {
+    reset();
+    stopChallengeCodes();
+    gameRoot.classList.add('protocol-not-started');
+    window.scrollTo({top:0,behavior:'smooth'});
+  });
+
+
+  window.addEventListener('resize', () => {
+    if (document.body.classList.contains('mission-active')) resizeChallengeCanvas();
+    if (!success.classList.contains('hidden')) resizeSuccessCanvas();
+  });
+
+  quarantineDrop.addEventListener('click', () => {
+    if (selected) quarantineSignal(selected);
+  });
+
+  verifyBtn.addEventListener('click', verify);
+
+  $('#clearBtn').addEventListener('click', () => {
+    Object.keys(assignments).forEach(k => delete assignments[k]);
+    quarantined.clear();
+    selected = null;
+    $$('.satellite-card.selected').forEach(card => card.classList.remove('selected'));
+    clearValidationErrors();
+    renderAssignments();
+    updateQuarantine();
+    feedback.classList.remove('is-success','is-error');
+    feedback.innerHTML = '<span class="status-dot"></span>Quadro limpo. Todos os cartões voltaram para a área disponível.';
+  });
+
+  waveValidateBtn.addEventListener('click', validateWave);
+  $('#waveResetBtn').addEventListener('click', () => {
+    resetWaveControls(false);
+    frequencyFeedback.classList.remove('is-success');
+    frequencyFeedback.textContent = 'Ajustes redefinidos. Tente alinhar novamente as duas ondas.';
+  });
+
+  [freqSlider,ampSlider,phaseSlider].forEach(slider =>
+    slider.addEventListener('input', () => {
+      updateWaveLabels();
+      drawWaveGame();
+    })
+  );
+
+  codeBtn.addEventListener('click', checkCode);
+  resultClose.addEventListener('click', closeResult);
+
+  codeInput.addEventListener('input', () => {
+    const out = $('#codeFeedback');
+    out.classList.remove('is-success','is-error');
+    out.textContent = '';
+    updateCodeAvailability();
+  });
+
+  codeInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') checkCode();
+  });
+
+  updateWaveLabels();
+  drawWaveGame();
+  renderAssignments();
+  updateQuarantine();
+  showMissionStage(1);
+  setFlow(1);
+})();
+</script>
+</body>
+</html>
